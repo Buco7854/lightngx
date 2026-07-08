@@ -103,6 +103,14 @@ const config = {
         additionalLanguages: ["nginx", "bash"],
       },
     }),
+
+  themes: [
+    // Offline search: builds a local index at compile time, no external service.
+    [
+      require.resolve("@easyops-cn/docusaurus-search-local"),
+      { hashed: true, docsRouteBasePath: "/", indexBlog: false },
+    ],
+  ],
 };
 
 module.exports = config;

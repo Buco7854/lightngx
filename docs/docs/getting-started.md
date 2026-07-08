@@ -11,6 +11,15 @@ docker compose up -d
 Open the UI on **port 9000**. On the first run it shows a setup page where you
 create the first administrator.
 
+## Light or full image
+
+The default `ghcr.io/buco7854/lightngx:latest` (`:light`) is nginx plus the
+Lightngx binary and nothing else, which is all most setups need. The
+`:full` tag adds an in-nginx CrowdSec WAF bouncer, traffic stats, and a lua
+runtime for OIDC/TOTP auth gates. Pick `:full` only if you want those
+extras. See [Light and full images](./images.md) for what each turns on and
+a complete example stack.
+
 ## Pre-seeding the first admin
 
 If you would rather not use the setup page, generate a bcrypt hash and pass it
@@ -33,10 +42,11 @@ Accounts and settings live in an SQLite file under the data directory
 sessions and settings to survive a container rebuild.
 
 :::tip Keep sessions valid across rebuilds
-Set `LN_SESSION_SECRET` to a fixed value of 32 or more characters. It signs
-sessions and also keys the encryption of stored TOTP secrets, so pinning it
-keeps both valid when the container is recreated. Left unset, it is generated
-at each start, which logs everyone out on restart.
+Set `LN_SESSION_SECRET` to a fixed value of 32 or more characters so session
+cookies survive a container recreation. Left unset it is generated at each
+start, which logs everyone out on restart. Stored TOTP secrets are encrypted
+with a separate key kept in the data directory, so keep that volume to
+preserve two-factor enrollments.
 :::
 
 ## Running behind a front proxy
