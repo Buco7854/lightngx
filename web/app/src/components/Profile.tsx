@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { api, ApiError, type Credential, type Me } from "../api";
+import { api, ApiError, type Credential, type Me, type SessionInfo } from "../api";
 import { useConfirm } from "../confirm";
 import { useI18n } from "../i18n";
 import { useToast } from "../toast";
-import { TrashIcon } from "../icons";
+import { MonitorIcon, TrashIcon } from "../icons";
 import { Btn, Modal, Spinner } from "../ui";
 import { Field } from "./auth/fields";
 import TOTPPanel from "./mfa/TOTPPanel";
@@ -35,6 +35,7 @@ export default function Profile({
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [creds, setCreds] = useState<Credential[]>([]);
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [adding, setAdding] = useState<"totp" | "webauthn" | null>(null);
   const local = me.method === "local";
 
@@ -48,7 +49,28 @@ export default function Profile({
       });
   }, [local, onAuthLost]);
 
+  const loadSessions = useCallback(() => {
+    if (!local) return;
+    api
+      .sessions()
+      .then((r) => setSessions(r.sessions ?? []))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) onAuthLost();
+      });
+  }, [local, onAuthLost]);
+
   useEffect(loadCreds, [loadCreds]);
+  useEffect(loadSessions, [loadSessions]);
+
+  async function revokeSession(s: SessionInfo) {
+    if (!(await ask({ title: t.revoke, message: t.confirmRevokeSession, danger: true }))) return;
+    try {
+      await api.revokeSession(s.sid);
+      loadSessions();
+    } catch {
+      toast(t.actionFailed, "error");
+    }
+  }
 
   async function changePassword(e: FormEvent) {
     e.preventDefault();
@@ -217,6 +239,43 @@ export default function Profile({
               </Modal>
             )}
           </div>
+        </Section>
+
+        <Section title={t.activeSessions}>
+          <ul className="flex flex-col gap-2">
+            {sessions.map((s) => (
+              <li
+                key={s.sid}
+                className="flex items-center justify-between gap-3 rounded-lg bg-inset px-3 py-2.5"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <MonitorIcon size={18} className="shrink-0 text-dim" />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      {s.browser} · {s.os}
+                      {s.current && (
+                        <span className="ml-2 rounded-full bg-accent/15 px-2 py-0.5 text-[11px] text-accent">
+                          {t.thisDevice}
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate text-xs text-dim">
+                      {s.ip} · {t.lastSeen} {new Date(s.lastSeen).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+                {!s.current && (
+                  <Btn
+                    variant="danger"
+                    className="min-h-[30px] shrink-0 px-2.5 text-xs"
+                    onClick={() => revokeSession(s)}
+                  >
+                    {t.revoke}
+                  </Btn>
+                )}
+              </li>
+            ))}
+          </ul>
         </Section>
       </div>
     </div>

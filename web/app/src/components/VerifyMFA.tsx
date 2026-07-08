@@ -28,13 +28,14 @@ export default function VerifyMFA({
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [remember, setRemember] = useState(false);
 
   async function submitTOTP(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
-      await api.verifyTOTP(code.trim());
+      await api.verifyTOTP(code.trim(), remember);
       onVerified();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t.invalidCode);
@@ -49,7 +50,7 @@ export default function VerifyMFA({
     try {
       const opts = await api.verifyWebAuthnBegin();
       const assertion = await getAssertion(opts);
-      await api.verifyWebAuthnFinish(assertion);
+      await api.verifyWebAuthnFinish(assertion, remember);
       onVerified();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t.webauthnFailed);
@@ -57,6 +58,18 @@ export default function VerifyMFA({
       setBusy(false);
     }
   }
+
+  const rememberBox = (
+    <label className="flex items-center gap-2 text-xs text-dim select-none">
+      <input
+        type="checkbox"
+        checked={remember}
+        onChange={(e) => setRemember(e.target.checked)}
+        className="h-3.5 w-3.5 accent-accent"
+      />
+      {t.rememberDevice}
+    </label>
+  );
 
   return (
     <AuthShell themePref={themePref} setThemePref={setThemePref}>
@@ -82,6 +95,7 @@ export default function VerifyMFA({
             required
           />
           {error && <AuthError>{error}</AuthError>}
+          {rememberBox}
           <Btn type="submit" variant="primary" disabled={busy || code.length < 6}>
             {busy ? <Spinner /> : t.verify}
           </Btn>
@@ -89,6 +103,7 @@ export default function VerifyMFA({
       ) : (
         <div className="flex flex-col gap-3">
           {error && <AuthError>{error}</AuthError>}
+          {rememberBox}
           <Btn variant="primary" onClick={verifyKey} disabled={busy}>
             {busy ? <Spinner /> : t.useSecurityKey}
           </Btn>

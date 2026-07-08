@@ -122,6 +122,17 @@ export interface Credential {
   createdAt: string;
 }
 
+export interface SessionInfo {
+  sid: string;
+  browser: string;
+  os: string;
+  ip: string;
+  userAgent: string;
+  createdAt: string;
+  lastSeen: string;
+  current: boolean;
+}
+
 export interface APIKey {
   id: number;
   name: string;
@@ -150,8 +161,8 @@ export const api = {
   logout: () => request("/api/auth/logout", { method: "POST" }),
 
   // MFA at login (partial "mfa" session -> full)
-  verifyTOTP: (code: string) =>
-    request<{ level: Level }>("/api/auth/mfa/verify/totp", {
+  verifyTOTP: (code: string, remember = false) =>
+    request<{ level: Level }>(`/api/auth/mfa/verify/totp?remember=${remember}`, {
       method: "POST",
       body: JSON.stringify({ code }),
     }),
@@ -160,8 +171,8 @@ export const api = {
       method: "POST",
       body: "{}",
     }),
-  verifyWebAuthnFinish: (cred: unknown) =>
-    request<{ level: Level }>("/api/auth/mfa/verify/webauthn/finish", {
+  verifyWebAuthnFinish: (cred: unknown, remember = false) =>
+    request<{ level: Level }>(`/api/auth/mfa/verify/webauthn/finish?remember=${remember}`, {
       method: "POST",
       body: JSON.stringify(cred),
     }),
@@ -195,6 +206,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ current, new: next }),
     }),
+  sessions: () => request<{ sessions: SessionInfo[] }>("/api/account/sessions"),
+  revokeSession: (sid: string) =>
+    request(`/api/account/sessions/${encodeURIComponent(sid)}`, { method: "DELETE" }),
 
   // Admin
   getPolicy: () => request<MFAPolicy>("/api/admin/mfa-policy"),
