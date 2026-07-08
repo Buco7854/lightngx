@@ -48,3 +48,18 @@ html[data-theme="dark"] {
 /* No backdrop-filter on .navbar: it would create a containing block, which
    traps the fixed-position mobile drawer (.navbar-sidebar) inside the
    navbar's 60px box and renders the menu unusable on phones. */
+
+/* Code blocks are server-rendered with the light Prism theme and only swap to
+   the dark theme on hydration, so in dark mode every block flashes light for a
+   frame. The container and title bar set --prism-background-color INLINE (the
+   light value), so the override needs !important to win before hydration;
+   otherwise the top of the block (title + padding) stays white. Values match
+   themes.oneDark, so hydration is a no-op. Scoped to dark mode. */
+html[data-theme="dark"] .theme-code-block {
+  --prism-background-color: hsl(220, 13%, 18%) !important;
+  --prism-color: hsl(220, 14%, 71%) !important;
+}
+html[data-theme="dark"] pre.prism-code {
+  background-color: hsl(220, 13%, 18%) !important;
+  color: hsl(220, 14%, 71%) !important;
+}
