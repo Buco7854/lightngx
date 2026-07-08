@@ -4,6 +4,7 @@
 const sidebars = {
   guide: [
     "index",
+    "screenshots",
     {
       type: "category",
       label: "Guide",
