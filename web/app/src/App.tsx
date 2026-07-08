@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, type Me } from "./api";
+import { api, setUnauthorizedHandler, type Me } from "./api";
 import { ConfirmProvider } from "./confirm";
 import { navigate, useLocation } from "./router";
 import { detectLang, I18nContext, translations, useI18n, type Lang } from "./i18n";
 import { applyThemePref, detectThemePref, watchSystemTheme, type ThemePref } from "./theme";
-import { ToastProvider } from "./toast";
+import { ToastProvider, useToast } from "./toast";
 import AdminView from "./components/AdminView";
 import AppSidebar, { type View } from "./components/AppSidebar";
 import ConfigView from "./components/ConfigView";
@@ -175,9 +175,24 @@ function Shell({
   setThemePref: (p: ThemePref) => void;
   onLogout: () => void;
 }) {
+  const { t } = useI18n();
+  const toast = useToast();
   const setView = useCallback((v: View) => navigate(`/${v}`), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { status, refresh: refreshStatus } = useNginxStatus();
+
+  // While the app is mounted, any 401 means the session was revoked or
+  // expired: drop to the login screen instead of leaving a broken shell.
+  useEffect(() => {
+    let done = false;
+    setUnauthorizedHandler(() => {
+      if (done) return;
+      done = true;
+      toast(t.sessionExpired, "warn");
+      onAuthLost();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [t, toast, onAuthLost]);
 
   const needsPolicy =
     me.role === "admin" && !!me.policy && !me.policy.decided && !me.policy.pinned;

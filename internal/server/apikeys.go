@@ -67,8 +67,8 @@ func (s *Server) requireScopeOrSession(scope string, next http.HandlerFunc) http
 			next(w, r.WithContext(withAPIKey(r.Context(), k)))
 			return
 		}
-		sess, err := s.sessions.FromRequest(r)
-		if err != nil || sess.Level != auth.LevelFull {
+		sess, ok := s.liveSession(r)
+		if !ok || sess.Level != auth.LevelFull {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}

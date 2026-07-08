@@ -12,6 +12,14 @@ export class ApiError extends Error {
   }
 }
 
+// Global 401 hook: registered by the authed shell so a revoked session
+// (deleted/demoted/reset elsewhere) is caught even on calls whose callers
+// swallow the error, e.g. the background nginx-status poll.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     credentials: "same-origin",
@@ -21,6 +29,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isJSON = res.headers.get("Content-Type")?.includes("application/json");
   const body = isJSON ? await res.json() : null;
   if (!res.ok) {
+    if (res.status === 401) onUnauthorized?.();
     throw new ApiError(res.status, body?.error ?? res.statusText, body?.output, body?.gone);
   }
   return body as T;
