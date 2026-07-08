@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
-import { ChevronDownIcon } from "./icons";
+import { ChevronDownIcon, XIcon } from "./icons";
 
 // Shared text-input styling: an inset fill + 1px border so fields read as
 // editable against the panel, not flush with it.
@@ -20,6 +20,45 @@ export function Input({
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
   return <input ref={ref} className={`${inputCls} ${className}`} {...props} />;
+}
+
+// SearchInput: a filter field with a custom clear button (the native
+// type=search cross is unstyleable and shows no pointer cursor).
+export function SearchInput({
+  value,
+  onChange,
+  placeholder,
+  className = "",
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <div className={`relative flex items-center ${className}`}>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label={ariaLabel ?? placeholder}
+        className="min-h-[36px] w-full rounded-md bg-ctrl px-2.5 pr-8 text-sm focus:outline-2 focus:outline-accent/60"
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Clear"
+          className="absolute right-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded text-dim hover:bg-hov hover:text-fg"
+        >
+          <XIcon size={14} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 // Modal: centered panel over a scrim, closes on Escape / backdrop click.

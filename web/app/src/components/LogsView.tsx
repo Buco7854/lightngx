@@ -3,7 +3,7 @@ import { api, ApiError, type LogFile } from "../api";
 import { useI18n } from "../i18n";
 import { setQuery, useLocation } from "../router";
 import { useToast } from "../toast";
-import { Btn, Combobox, StatusDot } from "../ui";
+import { Btn, Combobox, SearchInput, StatusDot } from "../ui";
 
 const PAGE_BYTES = 64 * 1024;
 const MAX_LINES = 5000;
@@ -177,12 +177,11 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
           {t.follow}
         </label>
 
-        <input
-          type="search"
+        <SearchInput
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={setFilter}
           placeholder={t.filter}
-          className="min-h-[36px] min-w-[140px] flex-1 rounded-md bg-ctrl px-2.5 py-1.5 text-sm focus:outline-2 focus:outline-accent/60"
+          className="min-w-[140px] flex-1"
         />
 
         <span className="text-xs whitespace-nowrap text-dim">{t.lines(shown.length)}</span>
@@ -208,7 +207,10 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
           <div className="px-3 py-2 text-dim">{t.emptyLog}</div>
         ) : (
           shown.map((line, i) => (
-            <div key={i} className="px-4 py-px whitespace-pre-wrap break-all select-text">
+            <div
+              key={i}
+              className="border-b border-line/70 px-4 py-0.5 whitespace-pre-wrap break-all select-text last:border-b-0"
+            >
               {line}
             </div>
           ))

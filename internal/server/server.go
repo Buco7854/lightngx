@@ -407,7 +407,7 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 		if rerr := restore(); rerr != nil {
 			s.audit(r, "config.write.rollback_failed", "path", req.Path, "error", rerr.Error())
 			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"error": "config test failed AND rollback failed — fix manually", "output": out})
+				"error": "config test failed AND rollback failed, fix manually", "output": out})
 			return
 		}
 		s.audit(r, "config.write.rejected", "path", req.Path)
@@ -451,7 +451,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 		if rerr := restore(); rerr != nil {
 			s.audit(r, "config.delete.rollback_failed", "path", path, "error", rerr.Error())
 			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"error": "config test failed AND rollback failed — fix manually", "output": out})
+				"error": "config test failed AND rollback failed, fix manually", "output": out})
 			return
 		}
 		s.audit(r, "config.delete.rejected", "path", path)
@@ -483,7 +483,7 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
 		if rerr := restore(); rerr != nil {
 			s.audit(r, "config.rename.rollback_failed", "from", req.From, "error", rerr.Error())
 			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"error": "config test failed AND rollback failed — fix manually", "output": out})
+				"error": "config test failed AND rollback failed, fix manually", "output": out})
 			return
 		}
 		s.audit(r, "config.rename.rejected", "from", req.From, "to", req.To)

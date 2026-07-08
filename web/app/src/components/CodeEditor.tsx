@@ -18,8 +18,52 @@ import {
   indentOnInput,
 } from "@codemirror/language";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
-import { nginx } from "@codemirror/legacy-modes/mode/nginx";
 import { tags } from "@lezer/highlight";
+
+// Minimal nginx tokenizer. The legacy mode only knows a fixed directive
+// list and renders everything else (and anything after it) as plain text;
+// this instead colours the first word of every statement as a directive, so
+// highlighting stays consistent for any config, including regex locations.
+const nginxMode = {
+  name: "nginx",
+  startState: () => ({ directive: true }),
+  token(stream: any, state: { directive: boolean }): string | null {
+    if (stream.eatSpace()) return null;
+    const ch = stream.peek();
+    if (ch === "#") {
+      stream.skipToEnd();
+      return "comment";
+    }
+    if (ch === '"' || ch === "'") {
+      stream.next();
+      let esc = false;
+      let c: string | null;
+      while ((c = stream.next()) != null) {
+        if (c === ch && !esc) break;
+        esc = !esc && c === "\\";
+      }
+      return "string";
+    }
+    if (ch === "$") {
+      stream.next();
+      stream.eatWhile(/[A-Za-z0-9_]/);
+      return "variableName";
+    }
+    if (ch === ";" || ch === "{" || ch === "}") {
+      stream.next();
+      state.directive = true;
+      return null;
+    }
+    const from = stream.pos;
+    stream.eatWhile(/[^\s;{}#"']/);
+    if (state.directive) {
+      state.directive = false;
+      return "keyword";
+    }
+    return /^\d/.test(stream.string.slice(from, stream.pos)) ? "number" : null;
+  },
+  languageData: { commentTokens: { line: "#" } },
+};
 
 // Marks programmatic doc replacements (external value sync) so the update
 // listener doesn't report them as user edits and spuriously mark dirty.
@@ -29,24 +73,18 @@ const External = Annotation.define<boolean>();
 // not possible for all tags, so use explicit colors per theme.
 const lightHighlight = HighlightStyle.define([
   { tag: tags.keyword, color: "#0550ae", fontWeight: "600" },
-  { tag: tags.atom, color: "#116329" },
   { tag: tags.number, color: "#953800" },
   { tag: tags.string, color: "#0a3069" },
   { tag: tags.comment, color: "#6e7781", fontStyle: "italic" },
   { tag: tags.variableName, color: "#8250df" },
-  { tag: tags.operator, color: "#cf222e" },
-  { tag: [tags.regexp, tags.special(tags.string)], color: "#116329" },
 ]);
 
 const darkHighlight = HighlightStyle.define([
   { tag: tags.keyword, color: "#79b8ff", fontWeight: "600" },
-  { tag: tags.atom, color: "#7ee787" },
   { tag: tags.number, color: "#ffab70" },
   { tag: tags.string, color: "#a5d6ff" },
   { tag: tags.comment, color: "#8b949e", fontStyle: "italic" },
   { tag: tags.variableName, color: "#d2a8ff" },
-  { tag: tags.operator, color: "#ff7b72" },
-  { tag: [tags.regexp, tags.special(tags.string)], color: "#7ee787" },
 ]);
 
 export default function CodeEditor({
@@ -85,7 +123,7 @@ export default function CodeEditor({
         bracketMatching(),
         indentOnInput(),
         highlightSelectionMatches(),
-        StreamLanguage.define(nginx),
+        StreamLanguage.define(nginxMode),
         themeCompartment.current.of(syntaxHighlighting(dark ? darkHighlight : lightHighlight)),
         readOnlyCompartment.current.of(EditorState.readOnly.of(readOnly)),
         keymap.of([

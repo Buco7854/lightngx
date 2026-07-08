@@ -6,7 +6,7 @@ import { useI18n } from "../i18n";
 import { setQuery, useLocation } from "../router";
 import { useToast } from "../toast";
 import { useFileEditor } from "../useFileEditor";
-import { Btn, editorPaneCls, EmptyState, Spinner, StatusDot, Switch } from "../ui";
+import { Btn, editorPaneCls, EmptyState, SearchInput, Spinner, StatusDot, Switch } from "../ui";
 import CodeEditor from "./CodeEditor";
 import { useOutput } from "./OutputPanel";
 import { useDarkTheme } from "./useDarkTheme";
@@ -290,12 +290,11 @@ export default function VhostsView({
           </>
         ) : (
           <>
-            <input
-              type="search"
+            <SearchInput
               value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              onChange={setFilter}
               placeholder={t.filterVhosts}
-              className="min-h-[36px] min-w-[160px] flex-1 rounded-md bg-ctrl px-3 text-sm focus:outline-2 focus:outline-accent/60"
+              className="min-w-[160px] flex-1"
             />
             <Btn variant="primary" onClick={create}>
               <PlusIcon /> {kind === "sites" ? t.newSite : t.newStream}

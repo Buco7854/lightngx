@@ -63,7 +63,7 @@ export default function Users({
 
   async function resetPassword(u: User) {
     const pw = await askPw({
-      title: `${t.resetPassword} — ${u.username}`,
+      title: `${t.resetPassword}: ${u.username}`,
       label: t.newPassword,
       placeholder: t.passwordHint,
       confirmLabel: t.resetPassword,

@@ -144,6 +144,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                       <Input
                         type={o.type}
                         value={value2}
+                        placeholder={t.confirmPasswordHint}
                         onChange={(e) => setValue2(e.target.value)}
                       />
                     </>

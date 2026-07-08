@@ -116,7 +116,7 @@ func (s *Server) handleVhostAction(w http.ResponseWriter, r *http.Request) {
 		if !rollback() {
 			s.audit(r, "vhost."+req.Action+".rollback_failed", "by", sess.User, "names", names)
 			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"error": "config test failed AND rollback failed — fix manually", "output": out})
+				"error": "config test failed AND rollback failed, fix manually", "output": out})
 			return
 		}
 		s.audit(r, "vhost."+req.Action+".rejected", "names", names)
@@ -164,7 +164,7 @@ func (s *Server) handleVhostRename(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if rerr := restore(); rerr != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"error": "config test failed AND rollback failed — fix manually", "output": out})
+				"error": "config test failed AND rollback failed, fix manually", "output": out})
 			return
 		}
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{

@@ -46,21 +46,27 @@ function DirNode({
   depth,
   cwd,
   onSelect,
+  onRename,
+  onDelete,
 }: {
   entry: TreeEntry;
   path: string;
   depth: number;
   cwd: string;
   onSelect: (p: string) => void;
+  onRename: (e: TreeEntry) => void;
+  onDelete: (e: TreeEntry) => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(depth < 1 || cwd.startsWith(path + "/") || cwd === path);
   const dirs = entry.children?.filter((c) => c.isDir) ?? [];
   const active = cwd === path;
+  const self = { ...entry, path, isDir: true };
 
   return (
     <div>
       <div
-        className={`mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-1 rounded-md pr-2 text-[13px] ${
+        className={`group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-1 rounded-md pr-1 text-[13px] ${
           active ? "bg-accent/15" : "hover:bg-hov"
         }`}
         style={{ paddingLeft: 6 + depth * 14 }}
@@ -79,6 +85,24 @@ function DirNode({
           <FolderIcon size={14} className={active ? "text-accent" : "text-dim"} />
           <span className="truncate">{entry.name}</span>
         </button>
+        {depth > 0 && (
+          <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-dim hover:bg-ctrl hover:text-fg"
+              onClick={() => onRename(self)}
+              title={t.rename}
+            >
+              <PencilIcon size={13} />
+            </button>
+            <button
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded text-dim hover:bg-ctrl hover:text-danger"
+              onClick={() => onDelete(self)}
+              title={t.deleteFolder}
+            >
+              <TrashIcon size={13} />
+            </button>
+          </span>
+        )}
       </div>
       {open &&
         dirs.map((d) => (
@@ -89,6 +113,8 @@ function DirNode({
             depth={depth + 1}
             cwd={cwd}
             onSelect={onSelect}
+            onRename={onRename}
+            onDelete={onDelete}
           />
         ))}
     </div>
@@ -292,7 +318,17 @@ export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
     <div className="flex min-h-0 min-w-0 flex-1">
       {/* Folder tree pane */}
       <aside className="hidden w-[230px] shrink-0 overflow-auto border-r border-line bg-panel p-2.5 min-[900px]:block">
-        {tree && <DirNode entry={{ ...tree, name: t.root }} path="" depth={0} cwd={cwd} onSelect={(p) => void goDir(p)} />}
+        {tree && (
+          <DirNode
+            entry={{ ...tree, name: t.root }}
+            path=""
+            depth={0}
+            cwd={cwd}
+            onSelect={(p) => void goDir(p)}
+            onRename={(e) => void renameEntry(e)}
+            onDelete={(e) => void deleteEntry(e)}
+          />
+        )}
       </aside>
 
       {/* Content */}
