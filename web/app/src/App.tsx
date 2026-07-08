@@ -57,6 +57,8 @@ export default function App() {
     }
   }, []);
 
+  const onAuthLost = useCallback(() => setMe(null), []);
+
   const boot = useCallback(async () => {
     try {
       const st = await api.authStatus();
@@ -134,7 +136,7 @@ export default function App() {
           me={me}
           view={pathToView(loc.pathname)}
           reloadMe={loadMe}
-          onAuthLost={() => setMe(null)}
+          onAuthLost={onAuthLost}
           themePref={themePref}
           setThemePref={setThemePrefState}
           onLogout={logout}

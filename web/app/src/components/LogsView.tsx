@@ -47,9 +47,8 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
 
   const isGz = files.find((f) => f.path === selected)?.gzip ?? false;
 
-  // Live files open empty at the end of file so only new lines show;
-  // history stays behind "Load older". Rotated .gz files have no tail to
-  // follow, so they load their last page right away.
+  // Live files open empty at EOF (history stays behind "Load older");
+  // .gz files have no tail to follow, so they load a page right away.
   const loadInitial = useCallback(
     async (path: string, gz: boolean) => {
       setLoaded(false);
@@ -74,7 +73,9 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
 
   useEffect(() => {
     if (selected) loadInitial(selected, isGz);
-  }, [selected, isGz, loadInitial]);
+    // loadInitial's identity must not reset the view on unrelated re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, isGz]);
 
   // Live follow over SSE. Gated on `loaded` so the stream starts from the
   // file's end (the size set by loadInitial) — not from byte 0, which would
