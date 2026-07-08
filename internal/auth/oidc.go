@@ -39,12 +39,31 @@ type OIDCOptions struct {
 	AllowedGroups []string
 	GroupsClaim   string
 	AdminGroups   []string
+	// Manual endpoints. When AuthURL is set the provider is built from
+	// these instead of fetching /.well-known/openid-configuration, for
+	// providers whose discovery is absent or wrong.
+	AuthURL     string
+	TokenURL    string
+	JWKSURL     string
+	UserInfoURL string
 }
 
 func NewOIDC(ctx context.Context, opts OIDCOptions, sessions *Sessions, secure bool) (*OIDC, error) {
-	provider, err := oidc.NewProvider(ctx, opts.Issuer)
-	if err != nil {
-		return nil, fmt.Errorf("oidc discovery: %w", err)
+	var provider *oidc.Provider
+	if opts.AuthURL != "" {
+		provider = (&oidc.ProviderConfig{
+			IssuerURL:   opts.Issuer,
+			AuthURL:     opts.AuthURL,
+			TokenURL:    opts.TokenURL,
+			JWKSURL:     opts.JWKSURL,
+			UserInfoURL: opts.UserInfoURL,
+		}).NewProvider(ctx)
+	} else {
+		p, err := oidc.NewProvider(ctx, opts.Issuer)
+		if err != nil {
+			return nil, fmt.Errorf("oidc discovery: %w", err)
+		}
+		provider = p
 	}
 	return &OIDC{
 		provider: provider,

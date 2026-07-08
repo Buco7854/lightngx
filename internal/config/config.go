@@ -72,6 +72,13 @@ type Config struct {
 	// Provider name shown on the login button ("Sign in with <label>");
 	// empty falls back to the generic SSO wording.
 	OIDCLabel string
+	// Manual endpoint overrides, used instead of OIDC discovery when a
+	// provider has no /.well-known/openid-configuration or serves a wrong
+	// one. Auth, token and JWKS must be set together; userinfo is optional.
+	OIDCAuthURL     string
+	OIDCTokenURL    string
+	OIDCJWKSURL     string
+	OIDCUserInfoURL string
 
 	// WebAuthn relying-party identity. When empty they are derived from
 	// the request host/origin at enrollment time (works behind a proxy
@@ -123,6 +130,10 @@ func Load() (*Config, error) {
 		OIDCGroupsClaim:   env("LN_OIDC_GROUPS_CLAIM", "groups"),
 		OIDCAdminGroups:   splitList(env("LN_OIDC_ADMIN_GROUPS", "")),
 		OIDCLabel:         env("LN_OIDC_LABEL", ""),
+		OIDCAuthURL:       env("LN_OIDC_AUTH_URL", ""),
+		OIDCTokenURL:      env("LN_OIDC_TOKEN_URL", ""),
+		OIDCJWKSURL:       env("LN_OIDC_JWKS_URL", ""),
+		OIDCUserInfoURL:   env("LN_OIDC_USERINFO_URL", ""),
 
 		WebAuthnRPID:    env("LN_WEBAUTHN_RPID", ""),
 		WebAuthnOrigins: splitList(env("LN_WEBAUTHN_ORIGINS", "")),
@@ -185,6 +196,10 @@ func Load() (*Config, error) {
 	}
 	if c.OIDCIssuer != "" && (c.OIDCClientID == "" || c.OIDCRedirectURL == "") {
 		return nil, fmt.Errorf("OIDC requires LN_OIDC_CLIENT_ID and LN_OIDC_REDIRECT_URL")
+	}
+	if (c.OIDCAuthURL != "" || c.OIDCTokenURL != "" || c.OIDCJWKSURL != "" || c.OIDCUserInfoURL != "") &&
+		(c.OIDCAuthURL == "" || c.OIDCTokenURL == "" || c.OIDCJWKSURL == "") {
+		return nil, fmt.Errorf("OIDC endpoint overrides need LN_OIDC_AUTH_URL, LN_OIDC_TOKEN_URL and LN_OIDC_JWKS_URL set together")
 	}
 
 	return c, nil

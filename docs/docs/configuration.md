@@ -42,6 +42,8 @@ Everything is configured through environment variables, all prefixed with
 | `LN_OIDC_ALLOWED_GROUPS` | Groups allowed to log in |
 | `LN_OIDC_ADMIN_GROUPS` | Groups granted the admin role |
 | `LN_OIDC_LABEL` | Provider name on the login button, shown as "Sign in with \<label\>". Empty keeps the generic SSO wording |
+| `LN_OIDC_AUTH_URL`, `LN_OIDC_TOKEN_URL`, `LN_OIDC_JWKS_URL` | Manual endpoints. Set all three together to skip discovery, for a provider whose `/.well-known/openid-configuration` is missing or wrong |
+| `LN_OIDC_USERINFO_URL` | Optional userinfo endpoint, only used with the manual endpoints |
 
 See [Accounts and access](./accounts.md#oidc) for how OIDC sign-in behaves and
 how roles are assigned.

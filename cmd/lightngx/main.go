@@ -173,6 +173,10 @@ func run() error {
 			AllowedGroups: cfg.OIDCAllowedGroups,
 			GroupsClaim:   cfg.OIDCGroupsClaim,
 			AdminGroups:   cfg.OIDCAdminGroups,
+			AuthURL:       cfg.OIDCAuthURL,
+			TokenURL:      cfg.OIDCTokenURL,
+			JWKSURL:       cfg.OIDCJWKSURL,
+			UserInfoURL:   cfg.OIDCUserInfoURL,
 		}, sessions, cfg.SecureCookies)
 		cancel()
 		if err != nil {
