@@ -69,6 +69,8 @@ export interface ActionResult {
   status?: string;
   ok?: boolean;
   output?: string;
+  reloaded?: boolean;
+  reloadError?: string;
 }
 
 export interface Site {

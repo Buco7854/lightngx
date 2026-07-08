@@ -106,6 +106,11 @@ export function useFileEditor(onAuthLost: () => void) {
       setSavedContent(content);
       setBaseHash(res.hash ?? "");
       toast(t.saved);
+      // Auto-reload runs server-side after the save passes nginx -t; a
+      // second toast tells the user it also went live (or needs a manual
+      // reload if it failed).
+      if (res.reloaded) toast(t.reloaded);
+      else if (res.reloadError) toast(t.reloadFailed, "warn");
       if (res.output?.includes("warn")) output(t.output, res.output);
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
