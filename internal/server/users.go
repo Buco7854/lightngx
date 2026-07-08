@@ -140,6 +140,8 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 			return
 		}
+		_ = s.accounts.Store().DeleteUserSessions(id, "")
+		_ = s.accounts.Store().ClearTrustedDevices(id)
 		s.audit(r, "user.password_reset", "by", sess.User, "username", target.Username)
 	}
 
@@ -187,7 +189,8 @@ func (s *Server) handleResetUserMFA(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
-	_ = s.accounts.Store().BumpGeneration(id)
+	_ = s.accounts.Store().DeleteUserSessions(id, "")
+	_ = s.accounts.Store().ClearTrustedDevices(id)
 	sess, _ := sessionFrom(r.Context())
 	s.audit(r, "user.mfa_reset", "by", sess.User, "username", target.Username)
 	u, _ := s.accounts.Store().GetUser(id)

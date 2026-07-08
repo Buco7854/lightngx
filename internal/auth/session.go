@@ -35,7 +35,7 @@ type Session struct {
 	Role      string    `json:"r"`
 	Method    string    `json:"m"` // "local" or "oidc"
 	Level     string    `json:"l"` // LevelFull / LevelMFA / LevelEnroll
-	Gen       int64     `json:"g"` // local session generation (revocation)
+	Sid       string    `json:"s"` // session id (local sessions; empty for oidc)
 	IssuedAt  time.Time `json:"iat"`
 	ExpiresAt time.Time `json:"exp"`
 }
@@ -129,14 +129,19 @@ func (s *Sessions) verify(token string) ([]byte, error) {
 	return payload, nil
 }
 
-// Issue sets a session cookie carrying sess. Partial sessions (not
-// LevelFull) get a short 10-minute TTL; full sessions get the normal TTL.
+// TTLFor returns the token lifetime for a session level: partial sessions
+// (awaiting MFA) get a short window, full sessions the configured TTL.
+func (s *Sessions) TTLFor(level string) time.Duration {
+	if level != LevelFull {
+		return 10 * time.Minute
+	}
+	return s.ttl
+}
+
+// Issue sets a session cookie carrying sess.
 func (s *Sessions) Issue(w http.ResponseWriter, sess Session) error {
 	now := time.Now()
-	ttl := s.ttl
-	if sess.Level != LevelFull {
-		ttl = 10 * time.Minute
-	}
+	ttl := s.TTLFor(sess.Level)
 	sess.IssuedAt = now
 	sess.ExpiresAt = now.Add(ttl)
 	payload, err := json.Marshal(sess)

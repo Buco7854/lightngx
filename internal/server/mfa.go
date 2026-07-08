@@ -21,14 +21,19 @@ func (s *Server) localSession(w http.ResponseWriter, r *http.Request) (*auth.Ses
 	return sess, true
 }
 
-// upgradeAfterMFA re-issues a full session once a partial (mfa/enroll)
-// session has satisfied its requirement.
+// upgradeAfterMFA raises the current session to full once a partial
+// (mfa/enroll) session has satisfied its requirement, keeping the same sid.
 func (s *Server) upgradeAfterMFA(w http.ResponseWriter, sess *auth.Session) error {
 	u, err := s.accounts.Store().GetUser(sess.UserID)
 	if err != nil {
 		return err
 	}
-	return s.issueSession(w, u, "local", auth.LevelFull)
+	if err := s.accounts.Store().UpgradeSession(sess.Sid, auth.LevelFull, s.sessions.TTLFor(auth.LevelFull)); err != nil {
+		return err
+	}
+	return s.sessions.Issue(w, auth.Session{
+		UserID: u.ID, User: u.Username, Role: u.Role, Method: "local", Level: auth.LevelFull, Sid: sess.Sid,
+	})
 }
 
 // ---- login-time verification (LevelMFA -> LevelFull) ----
@@ -67,6 +72,9 @@ func (s *Server) handleVerifyTOTP(w http.ResponseWriter, r *http.Request) {
 	if err := s.upgradeAfterMFA(w, sess); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
 		return
+	}
+	if r.URL.Query().Get("remember") == "true" {
+		s.setTrustCookie(w, r, sess.UserID)
 	}
 	s.audit(r, "mfa.totp.verified", "username", sess.User)
 	writeJSON(w, http.StatusOK, map[string]string{"level": auth.LevelFull})
@@ -162,6 +170,9 @@ func (s *Server) handleVerifyWebAuthnFinish(w http.ResponseWriter, r *http.Reque
 	if err := s.upgradeAfterMFA(w, sess); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
 		return
+	}
+	if r.URL.Query().Get("remember") == "true" {
+		s.setTrustCookie(w, r, sess.UserID)
 	}
 	s.audit(r, "mfa.webauthn.verified", "username", sess.User)
 	writeJSON(w, http.StatusOK, map[string]string{"level": auth.LevelFull})
@@ -360,6 +371,9 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
+	// Changing the password logs out every other device and drops remembered devices.
+	_ = s.accounts.Store().DeleteUserSessions(sess.UserID, sess.Sid)
+	_ = s.accounts.Store().ClearTrustedDevices(sess.UserID)
 	s.audit(r, "account.password_changed", "username", sess.User)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "changed"})
 }

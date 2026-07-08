@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/Buco7854/lightngx/internal/auth"
 )
@@ -109,21 +110,29 @@ func (s *Server) clientIP(r *http.Request) string {
 }
 
 // liveSession returns the request's session only if it is still valid. A
-// local session is rejected once its user is deleted or its generation is
-// bumped (role change, password/MFA reset, logout), so revocation is
-// immediate rather than waiting out the token TTL.
+// local session is looked up in the session store, so it is rejected the
+// moment it is revoked (logout, individual revoke, password/MFA reset) or its
+// user is deleted, and its role is read live so a demotion takes effect at
+// once. OIDC sessions stay stateless.
 func (s *Server) liveSession(r *http.Request) (*auth.Session, bool) {
-	sess, err := s.sessions.FromRequest(r)
+	tok, err := s.sessions.FromRequest(r)
 	if err != nil {
 		return nil, false
 	}
-	if sess.Method == "local" {
-		gen, err := s.accounts.Store().Generation(sess.UserID)
-		if err != nil || gen != sess.Gen {
-			return nil, false
-		}
+	if tok.Method != "local" {
+		return tok, true
 	}
-	return sess, true
+	rec, err := s.accounts.Store().GetSession(tok.Sid)
+	if err != nil {
+		return nil, false
+	}
+	if time.Since(rec.LastSeen) > time.Minute {
+		_ = s.accounts.Store().TouchSession(rec.Sid, s.clientIP(r))
+	}
+	return &auth.Session{
+		UserID: rec.UserID, User: rec.Username, Role: rec.Role,
+		Method: rec.Method, Level: rec.Level, Sid: rec.Sid,
+	}, true
 }
 
 // requireStep admits any valid session (partial or full). Used by the MFA

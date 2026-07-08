@@ -119,6 +119,8 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("DELETE /api/mfa/webauthn", s.handleDeleteCredential)
 	api.HandleFunc("DELETE /api/mfa/totp", s.handleDeleteTOTP)
 	api.HandleFunc("POST /api/account/password", s.handleChangePassword)
+	api.HandleFunc("GET /api/account/sessions", s.handleListSessions)
+	api.HandleFunc("DELETE /api/account/sessions/{sid}", s.handleRevokeSession)
 	api.HandleFunc("GET /api/config/tree", s.handleTree)
 	api.HandleFunc("GET /api/config/file", s.handleReadFile)
 	api.HandleFunc("PUT /api/config/file", s.handleWriteFile)
@@ -185,9 +187,13 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any, maxBytes int64) boo
 // ---- auth ----
 
 // issueSession issues a session cookie for a local user at the given level.
-func (s *Server) issueSession(w http.ResponseWriter, u store.User, method, level string) error {
+func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, u store.User, method, level string) error {
+	sid, err := s.accounts.Store().CreateSession(u.ID, level, method, r.UserAgent(), s.clientIP(r), s.sessions.TTLFor(level))
+	if err != nil {
+		return err
+	}
 	return s.sessions.Issue(w, auth.Session{
-		UserID: u.ID, User: u.Username, Role: u.Role, Method: method, Level: level, Gen: u.Generation,
+		UserID: u.ID, User: u.Username, Role: u.Role, Method: method, Level: level, Sid: sid,
 	})
 }
 
@@ -236,7 +242,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	if required, err := s.accounts.RoleRequiresMFA(u.Role); err == nil && required {
 		level = auth.LevelEnroll
 	}
-	if err := s.issueSession(w, u, "local", level); err != nil {
+	if err := s.issueSession(w, r, u, "local", level); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
 		return
 	}
@@ -271,17 +277,23 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	s.limiter.Reset(ip)
 	s.limiter.Reset(userKey)
-	if err := s.issueSession(w, dec.User, "local", dec.Level); err != nil {
+	level := dec.Level
+	// A remembered device skips the pending second factor.
+	if level == auth.LevelMFA && s.trustedDevice(r, dec.User.ID) {
+		level = auth.LevelFull
+		s.audit(r, "login.mfa_skipped_trusted", "username", dec.User.Username)
+	}
+	if err := s.issueSession(w, r, dec.User, "local", level); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
 		return
 	}
-	s.audit(r, "login.success", "username", dec.User.Username, "level", dec.Level)
-	writeJSON(w, http.StatusOK, map[string]string{"user": dec.User.Username, "level": dec.Level})
+	s.audit(r, "login.success", "username", dec.User.Username, "level", level)
+	writeJSON(w, http.StatusOK, map[string]string{"user": dec.User.Username, "level": level})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if sess, err := s.sessions.FromRequest(r); err == nil && sess.Method == "local" {
-		_ = s.accounts.Store().BumpGeneration(sess.UserID)
+	if sess, err := s.sessions.FromRequest(r); err == nil && sess.Sid != "" {
+		_ = s.accounts.Store().DeleteSession(sess.Sid, sess.UserID)
 	}
 	s.sessions.Clear(w)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

@@ -31,7 +31,6 @@ type User struct {
 	Role          string    `json:"role"`
 	TOTPEnrolled  bool      `json:"totpEnrolled"`
 	WebAuthnCount int       `json:"webauthnCount"`
-	Generation    int64     `json:"-"` // bumped to invalidate outstanding sessions
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
@@ -78,10 +77,30 @@ CREATE TABLE IF NOT EXISTS users (
     totp_secret   TEXT NOT NULL DEFAULT '',
     totp_confirmed INTEGER NOT NULL DEFAULT 0,
     totp_last_used INTEGER NOT NULL DEFAULT 0,
-    session_gen   INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS user_sessions (
+    sid         TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    level       TEXT NOT NULL,
+    method      TEXT NOT NULL,
+    user_agent  TEXT NOT NULL DEFAULT '',
+    ip          TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL,
+    last_seen   TEXT NOT NULL,
+    expires_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
+CREATE TABLE IF NOT EXISTS trusted_devices (
+    id          TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash  TEXT NOT NULL,
+    user_agent  TEXT NOT NULL DEFAULT '',
+    created_at  TEXT NOT NULL,
+    expires_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_trusted_user ON trusted_devices(user_id);
 CREATE TABLE IF NOT EXISTS webauthn_credentials (
     id          TEXT PRIMARY KEY,
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -107,13 +126,9 @@ CREATE TABLE IF NOT EXISTS api_keys (
 	if err != nil {
 		return err
 	}
-	for _, col := range []string{
-		"ALTER TABLE users ADD COLUMN totp_last_used INTEGER NOT NULL DEFAULT 0",
-		"ALTER TABLE users ADD COLUMN session_gen INTEGER NOT NULL DEFAULT 0",
-	} {
-		if _, err := s.db.Exec(col); err != nil && !strings.Contains(err.Error(), "duplicate column") {
-			return err
-		}
+	if _, err := s.db.Exec("ALTER TABLE users ADD COLUMN totp_last_used INTEGER NOT NULL DEFAULT 0"); err != nil &&
+		!strings.Contains(err.Error(), "duplicate column") {
+		return err
 	}
 	return nil
 }
@@ -131,7 +146,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var totpSecret string
 	var totpConfirmed int
 	if err := row.Scan(&u.ID, &u.Username, &u.Role, &totpSecret, &totpConfirmed,
-		&u.Generation, &created, &updated, &u.WebAuthnCount); err != nil {
+		&created, &updated, &u.WebAuthnCount); err != nil {
 		return u, err
 	}
 	u.TOTPEnrolled = totpConfirmed == 1 && totpSecret != ""
@@ -143,7 +158,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 // userCols folds the WebAuthn credential count into a correlated subquery
 // so a single row query is self-contained — no nested query while a rows
 // cursor is open (which would deadlock the single-connection pool).
-const userCols = "id, username, role, totp_secret, totp_confirmed, session_gen, created_at, updated_at, " +
+const userCols = "id, username, role, totp_secret, totp_confirmed, created_at, updated_at, " +
 	"(SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = users.id)"
 
 // CountAdmins returns the number of admin accounts.
@@ -251,13 +266,13 @@ func (s *Store) ListUsers() ([]User, error) {
 var ErrLastAdmin = errors.New("cannot remove the last admin")
 
 func (s *Store) SetPassword(id int64, hash string) error {
-	return s.touch(`UPDATE users SET password_hash = ?, session_gen = session_gen + 1, updated_at = ? WHERE id = ?`, hash, now(), id)
+	return s.touch(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`, hash, now(), id)
 }
 
 // SetRole changes a role, refusing to demote the last admin atomically.
 func (s *Store) SetRole(id int64, role string) error {
 	res, err := s.db.Exec(
-		`UPDATE users SET role = ?, session_gen = session_gen + 1, updated_at = ?
+		`UPDATE users SET role = ?, updated_at = ?
 		 WHERE id = ? AND (role = ? OR role != 'admin'
 		   OR (SELECT COUNT(*) FROM users WHERE role = 'admin') > 1)`,
 		role, now(), id, role)
@@ -292,21 +307,6 @@ func (s *Store) roleChangeError(id int64) error {
 		return ErrNotFound
 	}
 	return ErrLastAdmin
-}
-
-// BumpGeneration invalidates a user's outstanding sessions.
-func (s *Store) BumpGeneration(id int64) error {
-	return s.touch(`UPDATE users SET session_gen = session_gen + 1 WHERE id = ?`, id)
-}
-
-// Generation returns a user's current session generation, or ErrNotFound.
-func (s *Store) Generation(id int64) (int64, error) {
-	var g int64
-	err := s.db.QueryRow(`SELECT session_gen FROM users WHERE id = ?`, id).Scan(&g)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, ErrNotFound
-	}
-	return g, err
 }
 
 func (s *Store) touch(query string, args ...any) error {

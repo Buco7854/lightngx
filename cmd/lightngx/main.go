@@ -157,6 +157,13 @@ func run() error {
 		return fmt.Errorf("open database: %w", err)
 	}
 	defer userStore.Close()
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for range t.C {
+			_ = userStore.DeleteExpiredSessions()
+		}
+	}()
 	acct, err := accounts.New(userStore, cfg)
 	if err != nil {
 		return fmt.Errorf("accounts: %w", err)
