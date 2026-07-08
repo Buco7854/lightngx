@@ -121,7 +121,7 @@ or copy them from here):
 </details>
 
 CrowdSec runs on the Postgres service, but the image has no `DB_*` environment
-variables — the DB connection has to come from a mounted `config.yaml.local`
+variables, so the DB connection has to come from a mounted `config.yaml.local`
 (without it CrowdSec silently uses SQLite and ignores Postgres). Save this as
 `crowdsec/conf/config.yaml.local`; it reads the credentials from your `.env`:
 
@@ -191,8 +191,8 @@ head -c 32 /dev/urandom > nginx/conf/gates/oidc/session_secret                # 
 The key files must be owned by the user nginx runs its **workers** as (the `user`
 directive in your `nginx.conf`). You do not have to chase that user down: on every
 start the container **owns `/etc/nginx` as the worker user and locks the gate
-dir** for you. So the simplest way to apply it after adding the keys is to restart
-— which in the next step also loads the gate:
+dir** for you. So the simplest way to apply it after adding the keys is to restart,
+which in the next step also loads the gate:
 
 ```sh
 docker compose restart nginx

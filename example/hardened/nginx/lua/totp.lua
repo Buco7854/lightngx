@@ -1,4 +1,4 @@
--- RFC 6238 TOTP / RFC 4226 HOTP — pure Lua + ngx.hmac_sha1 (lua-nginx-
+-- RFC 6238 TOTP / RFC 4226 HOTP - pure Lua + ngx.hmac_sha1 (lua-nginx-
 -- module builtin). No external deps. Time-step 30s, 6 digits, SHA-1
 -- (the only thing all authenticator apps universally accept).
 
@@ -22,7 +22,7 @@ function _M.base32_decode(input)
         if bits >= 8 then
             bits = bits - 8
             out[#out + 1] = string.char(math.floor(value / 2 ^ bits) % 256)
-            -- Keep only the low `bits` bits — otherwise `value` grows
+            -- Keep only the low `bits` bits - otherwise `value` grows
             -- unbounded (32 base32 chars = 160 bits → blows past double
             -- precision well before the end of a real TOTP secret).
             value = value % (2 ^ bits)

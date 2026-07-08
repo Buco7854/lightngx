@@ -1,15 +1,15 @@
 -- OIDC gate. Thin wrapper around lua-resty-openidc; meant to run in a
--- `rewrite_by_lua_block` (NOT access — would shadow the CrowdSec
+-- `rewrite_by_lua_block` (NOT access - would shadow the CrowdSec
 -- bouncer at http context). See example/.../snippets/oidc-gate.conf
 -- for usage and the README for the full doc.
 --
 -- Discovery: `oidc.discovery` accepts a URL (auto) or a table with
 -- authorization_endpoint / token_endpoint / jwks_uri / issuer (manual).
 --
--- Down detection — two paths:
---   1. In-band — any IdP call from nginx (cold discovery / JWKS /
+-- Down detection - two paths:
+--   1. In-band - any IdP call from nginx (cold discovery / JWKS /
 --      token exchange) that fails opens the circuit.
---   2. Active probe — `ngx.timer.every` on worker 0, lazy-started on
+--   2. Active probe - `ngx.timer.every` on worker 0, lazy-started on
 --      first guarded request, polls discovery so outages are caught
 --      even when nginx has a warm cache and would otherwise just 302
 --      users into a dead IdP.
@@ -25,7 +25,7 @@ local DOWN_KEY                = "oidc:down"
 local DEFAULT_SCOPE           = "openid profile email"
 local DEFAULT_PROBE_INTERVAL  = 30          -- seconds between active probes
 local DEFAULT_PROBE_TIMEOUT   = 5           -- seconds per probe attempt
--- Status for "XHR has no session, please re-auth" — NOT 401.
+-- Status for "XHR has no session, please re-auth" - NOT 401.
 -- CrowdSec's http-generic-bf scenario watches 401/403 and treats
 -- SPA polling storms as brute-force attempts. 419 (Laravel's "Page
 -- Expired") is recognised by most SPAs as "session expired, refresh
@@ -39,7 +39,7 @@ local session_secret_cache = {}             -- path -> string, per-worker
 local whitelist_file_cache = {}             -- path -> {cidr,...}, per-worker
 local probes_started       = {}             -- url -> true, per-worker
 
--- Errors we treat as "IdP infra broken" — open circuit + use fallback.
+-- Errors we treat as "IdP infra broken" - open circuit + use fallback.
 -- Anything else (denied consent, sig mismatch) surfaces as-is.
 local INFRA_ERR_PATTERNS = {
     "accessing discovery",
@@ -139,7 +139,7 @@ local function path_in_list(path, list)
     return false
 end
 
--- Cached per-worker. Workers run as `nginx` — chown the file
+-- Cached per-worker. Workers run as `nginx` - chown the file
 -- accordingly, or you get a Permission denied in the log.
 local function load_client_secret(path)
     local v = client_secret_cache[path]
@@ -147,7 +147,7 @@ local function load_client_secret(path)
     local f, oerr = io.open(path, "rb")
     if not f then
         ngx.log(ngx.ERR, "oidc_gate: client_secret_file unreadable: ", path,
-                " (", oerr or "unknown error", ") — workers run as non-root;",
+                " (", oerr or "unknown error", ") - workers run as non-root;",
                 " try `chown nginx:nginx ", path, "`")
         return nil
     end
@@ -162,7 +162,7 @@ local function load_client_secret(path)
     return s
 end
 
--- Shared session secret for lua-resty-session — MUST be identical
+-- Shared session secret for lua-resty-session - MUST be identical
 -- across all workers or the OIDC callback fails with "no session
 -- state found" (worker A signs the cookie, worker B can't decrypt).
 -- lua-resty-session 4.x takes the first 32 bytes as the AES-256 key.
@@ -173,13 +173,13 @@ local function load_session_secret(path)
     local f, oerr = io.open(path, "rb")
     if not f then
         ngx.log(ngx.ERR, "oidc_gate: session_secret_file unreadable: ", path,
-                " (", oerr or "unknown error", ") — chown nginx:nginx ", path)
+                " (", oerr or "unknown error", ") - chown nginx:nginx ", path)
         return nil
     end
     local s = f:read("*a")
     f:close()
     if not s or #s < 32 then
-        ngx.log(ngx.ERR, "oidc_gate: session_secret_file too short — need ≥32B, got ",
+        ngx.log(ngx.ERR, "oidc_gate: session_secret_file too short - need ≥32B, got ",
                 s and #s or 0, " (", path, ")")
         return nil
     end
@@ -234,19 +234,19 @@ local function probe_idp(premature, url, timeout_ms, shd, ssl_verify, hold_ttl)
 
     local up = res ~= nil and res.status and res.status < 500
     if up then
-        -- Don't close the circuit here — a healthy discovery endpoint
+        -- Don't close the circuit here - a healthy discovery endpoint
         -- doesn't prove the full auth flow works. The circuit closes
         -- naturally: once the probe stops re-setting DOWN_KEY on
         -- failure, the existing TTL expires within 30-60s.
         if shd:get(DOWN_KEY) then
             ngx.log(ngx.NOTICE, "oidc_gate: probe ", url, " got HTTP ",
-                    res.status, " — letting circuit TTL expire naturally")
+                    res.status, " - letting circuit TTL expire naturally")
         end
     else
         shd:set(DOWN_KEY, true, hold_ttl)
         ngx.log(ngx.WARN, "oidc_gate: probe ", url, " failed (",
                 err or ("HTTP " .. tostring(res and res.status)),
-                ") — circuit held open for ", hold_ttl, "s")
+                ") - circuit held open for ", hold_ttl, "s")
     end
 end
 
@@ -279,7 +279,7 @@ local function maybe_start_probe(opts, shd)
                                      url, timeout_ms, shd, ssl_verify, hold_ttl)
     if not ok then
         ngx.log(ngx.ERR, "oidc_gate: ngx.timer.every failed: ", err,
-                " — active probe disabled, in-band detection only")
+                " - active probe disabled, in-band detection only")
         probes_started[url] = nil
         return
     end
@@ -288,19 +288,19 @@ local function maybe_start_probe(opts, shd)
 end
 
 local function service_unavailable(reason)
-    ngx.log(ngx.ERR, "oidc_gate: 503 — ", reason)
+    ngx.log(ngx.ERR, "oidc_gate: 503 - ", reason)
     ngx.status = 503
     ngx.header["Retry-After"]   = "30"
     ngx.header["Content-Type"]  = "text/plain; charset=utf-8"
     ngx.header["Cache-Control"] = "no-store"
-    ngx.print("503 Service Unavailable — identity provider is unreachable.\n")
+    ngx.print("503 Service Unavailable - identity provider is unreachable.\n")
     return ngx.exit(503)
 end
 
 -- True for XHR / fetch requests, false for top-level navigations and
 -- asset loads. Following a cross-origin 302 to the IdP works fine on
 -- navigations and on `<script>`/`<img>`/`<link>` loads (which use
--- Sec-Fetch-Mode: no-cors), but breaks on XHR/fetch — the browser
+-- Sec-Fetch-Mode: no-cors), but breaks on XHR/fetch - the browser
 -- CORS-blocks the redirect chain because the IdP's /authorize has
 -- no Access-Control-Allow-Origin. For SPAs the right answer is 401
 -- so the JS can refresh-and-retry instead of throwing a CORS error.
@@ -348,10 +348,10 @@ function _M.guard(opts)
         oidc_opts.client_secret = secret
     end
 
-    -- Shared session secret across all workers — required for the
+    -- Shared session secret across all workers - required for the
     -- callback to find the state cookie set during the redirect-out.
     -- lua-resty-openidc expects this in its FOURTH positional arg
-    -- (session_or_opts) — opts.session_opts is NOT read by current
+    -- (session_or_opts) - opts.session_opts is NOT read by current
     -- versions, despite older docs/examples suggesting otherwise.
     local session_or_opts = oidc_opts.session_opts
     if opts.session_secret_file then
@@ -366,7 +366,7 @@ function _M.guard(opts)
     oidc_opts.scope      = oidc_opts.scope      or DEFAULT_SCOPE
     oidc_opts.ssl_verify = oidc_opts.ssl_verify or "yes"
     oidc_opts.timeout    = oidc_opts.timeout    or (DEFAULT_PROBE_TIMEOUT * 1000)
-    -- Slim default session contents — only the userinfo claims, which
+    -- Slim default session contents - only the userinfo claims, which
     -- is all this gate forwards (X-Auth-Sub/User/Email). Avoids the
     -- 4 KB cookie limit triggering `session=` + `session2=` chunking,
     -- which Cloudflare (and some other proxies) mangles → auth works
@@ -378,7 +378,7 @@ function _M.guard(opts)
         oidc_opts.session_contents = { user = true }
     end
 
-    -- SPA-safe unauth handling — see is_xhr_request() above. Browsers
+    -- SPA-safe unauth handling - see is_xhr_request() above. Browsers
     -- send Sec-Fetch-Mode: cors / same-origin on fetch/XHR; if we 302
     -- those cross-origin to the IdP the redirect chain hits the IdP's
     -- /authorize, which has no CORS headers, browser blocks. `deny`
@@ -400,7 +400,7 @@ function _M.guard(opts)
             local ttl = opts.fallback_ttl or DEFAULT_FALLBACK_TTL
             if shd then shd:set(DOWN_KEY, true, ttl) end
             ngx.log(ngx.ERR, "oidc_gate: OIDC unreachable: ", err,
-                    " — circuit opened for ", ttl, "s")
+                    " - circuit opened for ", ttl, "s")
             if opts.totp_fallback then
                 return fall_back_to_totp(opts,
                                           "infra error: " .. tostring(err))
@@ -408,7 +408,7 @@ function _M.guard(opts)
             return service_unavailable(tostring(err))
         end
         if xhr then
-            -- 419 (not 401) — see XHR_UNAUTH_STATUS comment at the
+            -- 419 (not 401) - see XHR_UNAUTH_STATUS comment at the
             -- top. SPA polling can't trip CrowdSec's bf scenarios.
             ngx.status = XHR_UNAUTH_STATUS
             ngx.header["Content-Type"]  = "application/json"
@@ -421,7 +421,7 @@ function _M.guard(opts)
         end
         -- Non-XHR authentication failure: callback state mismatch,
         -- replay, expired pre-auth cookie, ID-token signature fail,
-        -- etc. — the OIDC equivalent of "wrong credentials". 401 (not
+        -- etc. - the OIDC equivalent of "wrong credentials". 401 (not
         -- 500) so CrowdSec's http-generic-bf can catch anyone
         -- hammering /__oidc_callback with garbage codes / forged
         -- state. Matches totp_gate's failed-login 401 emit.
@@ -430,7 +430,7 @@ function _M.guard(opts)
         ngx.status = 401
         ngx.header["Content-Type"]  = "text/plain; charset=utf-8"
         ngx.header["Cache-Control"] = "no-store"
-        ngx.print("401 Unauthorized — OIDC authentication failed.\n")
+        ngx.print("401 Unauthorized - OIDC authentication failed.\n")
         return ngx.exit(401)
     end
 

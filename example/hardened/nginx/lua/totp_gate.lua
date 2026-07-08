@@ -43,7 +43,7 @@ local function load_required(cache, path, label)
     local data, err = read_trimmed(path)
     if not data then
         ngx.log(ngx.ERR, "totp_gate: ", label, " unreadable: ", path,
-                " (", err or "unknown error", ") — workers run as non-root;",
+                " (", err or "unknown error", ") - workers run as non-root;",
                 " try `chown nginx:nginx ", path, "`")
         return ngx.exit(500)
     end
@@ -137,7 +137,7 @@ local function verify_session(key, value)
     return expiry ~= nil and expiry > ngx.time()
 end
 
--- Same-origin only — prevents open redirect via `?next=//evil`.
+-- Same-origin only - prevents open redirect via `?next=//evil`.
 local function safe_next(value)
     if type(value) ~= "string" then return "/" end
     if value:sub(1, 1) ~= "/" then return "/" end
@@ -196,13 +196,13 @@ local function load_template(path)
     local s = f:read("*a")
     f:close()
     if not s or s == "" then
-        ngx.log(ngx.WARN, "totp_gate: template ", path, " empty — using baked default")
+        ngx.log(ngx.WARN, "totp_gate: template ", path, " empty - using baked default")
         template_cache[path] = false
         return LOGIN_HTML
     end
     if not s:find("__ACTION__", 1, true) then
         ngx.log(ngx.WARN, "totp_gate: template ", path,
-                " missing __ACTION__ placeholder — using baked default")
+                " missing __ACTION__ placeholder - using baked default")
         template_cache[path] = false
         return LOGIN_HTML
     end
@@ -232,7 +232,7 @@ end
 
 local function ratelimit_record_failure(shd, ip, window)
     if not shd then return end
-    -- TTL is set on first incr only, subsequent incrs don't extend it —
+    -- TTL is set on first incr only, subsequent incrs don't extend it -
     -- so hammering can't keep the lockout alive past `window`.
     shd:incr("fail:" .. ip, 1, 0, window)
 end
@@ -359,7 +359,7 @@ function _M.guard(opts)
             ngx.log(ngx.WARN, "totp_gate: failed code from ", ip,
                     " (failures=", fails + 1, "/", max_fails, ")")
             return serve_login(template_path, login_path, next_url,
-                "Invalid code — try again.", "invalid", nil, notice, notice_kind)
+                "Invalid code - try again.", "invalid", nil, notice, notice_kind)
         end
         return serve_login(template_path, login_path, next_url,
             nil, nil, nil, notice, notice_kind)
@@ -373,7 +373,7 @@ function _M.guard(opts)
         )
     end
     -- Non-GET unauthenticated request (almost always XHR/fetch from
-    -- a SPA). Return 419, NOT 401 — failed login attempts (POST to
+    -- a SPA). Return 419, NOT 401 - failed login attempts (POST to
     -- the login path with a wrong code) keep their 401 via
     -- serve_login() so CrowdSec brute-force scenarios still catch
     -- credential-guessing. This branch is the "you have no session
