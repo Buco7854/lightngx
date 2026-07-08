@@ -22,7 +22,27 @@ SQLite database inside, so the list is short.
 
 For the container route you additionally need Docker (or a compatible
 runtime) with Compose v2. There is no database server, message queue or
-other sidecar: memory use is tens of megabytes.
+other sidecar; the measured footprint below is the whole cost.
+
+## Measured footprint
+
+Numbers from a real run on a 4 vCPU Linux amd64 container, serving a demo
+config with four sites, two streams and a 300-line access log. Treat them
+as ballpark figures, not guarantees.
+
+| Measure | Value |
+| --- | --- |
+| Binary size, frontend and SQLite included | 19 MB |
+| SQLite database with a few users, passkeys and API keys | 44 KB |
+| Data directory total, database plus session key | 76 KB |
+| Cold start until the UI serves requests | 15 ms |
+| Memory at idle | 14 MB resident |
+| Memory under load | 25 MB peak resident |
+| Sustained API throughput during that load | about 3,500 req/s |
+
+The load figures come from 30 seconds of 24 concurrent authenticated
+clients cycling through config, sites and log reads, while 25 live log
+streams followed a file being appended to.
 
 ## Browser
 
