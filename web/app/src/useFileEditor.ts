@@ -17,6 +17,7 @@ export function useFileEditor(onAuthLost: () => void) {
   const [path, setPath] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
+  const [baseHash, setBaseHash] = useState("");
   const [readOnly, setReadOnly] = useState(false);
   const [symlink, setSymlink] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,6 +52,7 @@ export function useFileEditor(onAuthLost: () => void) {
         setPath(p);
         setContent(res.content);
         setSavedContent(res.content);
+        setBaseHash(res.hash);
         setReadOnly(external);
         setSymlink(link);
         return true;
@@ -70,6 +72,7 @@ export function useFileEditor(onAuthLost: () => void) {
     setPath(null);
     setContent("");
     setSavedContent("");
+    setBaseHash("");
     setSymlink("");
   }, []);
 
@@ -83,8 +86,24 @@ export function useFileEditor(onAuthLost: () => void) {
     if (!path || saving || readOnly || !dirty) return;
     setSaving(true);
     try {
-      const res = await api.writeFile(path, content);
+      let res;
+      try {
+        res = await api.writeFile(path, content, baseHash || undefined);
+      } catch (err) {
+        // Conflict: the file changed on disk. The buffer is kept either
+        // way; overwriting retries without the base hash.
+        if (!(err instanceof ApiError && err.status === 409)) throw err;
+        const overwrite = await ask({
+          title: t.conflictTitle,
+          message: t.conflictMessage,
+          confirmLabel: t.overwrite,
+          danger: true,
+        });
+        if (!overwrite) return;
+        res = await api.writeFile(path, content);
+      }
       setSavedContent(content);
+      setBaseHash(res.hash ?? "");
       toast(t.saved);
       if (res.output?.includes("warn")) output(t.output, res.output);
     } catch (err) {
@@ -97,7 +116,7 @@ export function useFileEditor(onAuthLost: () => void) {
     } finally {
       setSaving(false);
     }
-  }, [path, saving, readOnly, dirty, content, toast, t, output, handleErr]);
+  }, [path, saving, readOnly, dirty, content, baseHash, ask, toast, t, output, handleErr]);
 
   return {
     path,

@@ -70,6 +70,8 @@ func (s *Server) handleVhostAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
 	var restores []func() error
 	rollback := func() bool {
 		ok := true
@@ -151,6 +153,8 @@ func (s *Server) handleVhostRename(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req, 4096) {
 		return
 	}
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
 	restore, err := mgr.Rename(req.Name, req.NewName)
 	if err != nil {
 		writeJSON(w, siteStatusFor(err), map[string]string{"error": err.Error()})

@@ -10,6 +10,10 @@ const en = {
   signIn: "Sign in",
   signInOIDC: "Sign in with SSO",
   signInWith: (name: string) => `Sign in with ${name}`,
+  conflictTitle: "File changed on disk",
+  conflictMessage:
+    "Someone else saved this file after you opened it. Overwrite it with your version? Cancel keeps your edits in the editor, so you can copy them and reopen the file to see the latest version.",
+  overwrite: "Overwrite",
   or: "or",
   loginFailed: "Invalid credentials",
   tooManyAttempts: "Too many attempts, try again later",
@@ -239,6 +243,10 @@ const fr: typeof en = {
   signIn: "Se connecter",
   signInOIDC: "Connexion via SSO",
   signInWith: (name: string) => `Connexion via ${name}`,
+  conflictTitle: "Fichier modifié sur le disque",
+  conflictMessage:
+    "Quelqu'un d'autre a enregistré ce fichier après son ouverture. L'écraser avec votre version ? Annuler conserve vos modifications dans l'éditeur : vous pouvez les copier puis rouvrir le fichier pour voir la dernière version.",
+  overwrite: "Écraser",
   or: "ou",
   loginFailed: "Identifiants invalides",
   tooManyAttempts: "Trop de tentatives, réessayez plus tard",

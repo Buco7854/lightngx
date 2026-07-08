@@ -214,13 +214,13 @@ export const api = {
 
   tree: () => request<{ root: string; tree: TreeEntry }>("/api/config/tree"),
   readFile: (path: string) =>
-    request<{ path: string; content: string }>(
+    request<{ path: string; content: string; hash: string }>(
       `/api/config/file?path=${encodeURIComponent(path)}`,
     ),
-  writeFile: (path: string, content: string) =>
-    request<ActionResult>("/api/config/file", {
+  writeFile: (path: string, content: string, baseHash?: string) =>
+    request<ActionResult & { hash?: string }>("/api/config/file", {
       method: "PUT",
-      body: JSON.stringify({ path, content }),
+      body: JSON.stringify({ path, content, baseHash }),
     }),
   deleteFile: (path: string) =>
     request<ActionResult>(`/api/config/file?path=${encodeURIComponent(path)}`, {

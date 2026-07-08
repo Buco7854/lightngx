@@ -3,6 +3,8 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -37,6 +39,16 @@ type Server struct {
 	accounts *accounts.Service
 	webauthn *webauthnx.Manager
 	static   fs.FS
+
+	// mutate serializes every config mutation with its nginx -t and
+	// rollback, so concurrent saves cannot fail on each other's in-flight
+	// changes or roll back content another request just committed.
+	mutate sync.Mutex
+}
+
+func contentHash(b []byte) string {
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
 }
 
 type ctxKey int
@@ -328,16 +340,31 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, statusFor(err), map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"path": path, "content": string(content)})
+	writeJSON(w, http.StatusOK, map[string]string{
+		"path": path, "content": string(content), "hash": contentHash(content)})
 }
 
 func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
+		Path     string `json:"path"`
+		Content  string `json:"content"`
+		BaseHash string `json:"baseHash"`
 	}
 	if !readJSON(w, r, &req, s.cfg.MaxEditSize+64<<10) {
 		return
+	}
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
+	// Reject a save based on a version that is no longer on disk, so two
+	// editors cannot silently overwrite each other. A save without
+	// baseHash overwrites unconditionally.
+	if req.BaseHash != "" {
+		current, err := s.conf.Read(req.Path)
+		if err != nil || contentHash(current) != req.BaseHash {
+			writeJSON(w, http.StatusConflict, map[string]string{
+				"error": "file changed on disk since it was opened"})
+			return
+		}
 	}
 	restore, err := s.conf.Write(req.Path, []byte(req.Content))
 	if err != nil {
@@ -358,7 +385,8 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "config.write", "path", req.Path)
-	writeJSON(w, http.StatusOK, map[string]any{"status": "saved", "output": out})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "saved", "output": out, "hash": contentHash([]byte(req.Content))})
 }
 
 func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
@@ -368,6 +396,8 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req, 4096) {
 		return
 	}
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
 	if err := s.conf.Mkdir(req.Path); err != nil {
 		writeJSON(w, statusFor(err), map[string]string{"error": err.Error()})
 		return
@@ -378,6 +408,8 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
 	restore, err := s.conf.Delete(path)
 	if err != nil {
 		writeJSON(w, statusFor(err), map[string]string{"error": err.Error()})
@@ -408,6 +440,8 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req, 4096) {
 		return
 	}
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
 	restore, err := s.conf.Rename(req.From, req.To)
 	if err != nil {
 		writeJSON(w, statusFor(err), map[string]string{"error": err.Error()})

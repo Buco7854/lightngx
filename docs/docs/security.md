@@ -13,6 +13,10 @@ hardened for that.
 - The editor is confined to the config directory. Both lexical path traversal
   and symlink escapes are blocked. Log access is limited to the configured
   paths, and to regular files only.
+- Config mutations are serialized server-side, so concurrent saves never test
+  or roll back against each other's half-applied changes. Saving a file that
+  changed since you opened it returns a conflict the editor surfaces, rather
+  than silently overwriting the other edit; your buffer is kept either way.
 - Passwords use bcrypt at cost 12. A login that still owes a second factor gets
   a partial session that unlocks only the MFA endpoints. TOTP secrets are
   encrypted with AES-GCM at rest. WebAuthn uses the audited `go-webauthn`
