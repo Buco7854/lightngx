@@ -1,0 +1,142 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-bg: #eef0f3;
+  --color-panel: #f8f9fb;
+  --color-inset: #e9ebef;
+  --color-hov: #e4e7ec;
+  --color-ctrl: #e5e8ed;
+  --color-ctrl-hi: #d9dde4;
+  --color-line: #dde0e6;
+  --color-fg: #1c2128;
+  --color-dim: #6a7280;
+  --color-accent: #009639;
+  --color-accent-hi: #007d30;
+  --color-accent-fg: #ffffff;
+  --color-danger: #d3382c;
+  --color-warn: #b57d00;
+  --color-ok: #1a8a44;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+[data-theme="dark"] {
+  --color-bg: #111419;
+  --color-panel: #191d24;
+  --color-inset: #10131a;
+  --color-hov: #232933;
+  --color-ctrl: #252b35;
+  --color-ctrl-hi: #2f3642;
+  --color-line: #272d38;
+  --color-fg: #e4e8ee;
+  --color-dim: #8b94a3;
+  --color-accent: #26b356;
+  --color-accent-hi: #34c765;
+  --color-accent-fg: #0c1a10;
+  --color-danger: #e5584d;
+  --color-warn: #d9a11a;
+  --color-ok: #3dc06c;
+  color-scheme: dark;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-fg font-sans text-[15px];
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Slim themed scrollbars everywhere. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ctrl-hi) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ctrl-hi);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-dim);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* CodeMirror needs plain CSS: its DOM is created outside React. */
+.editor-host .cm-editor {
+  height: 100%;
+  font-size: 14px;
+  background: var(--color-panel);
+}
+
+.editor-host .cm-editor.cm-focused {
+  outline: none;
+}
+
+.editor-host .cm-scroller {
+  font-family: var(--font-mono);
+  line-height: 1.55;
+  -webkit-overflow-scrolling: touch;
+}
+
+.editor-host .cm-gutters {
+  background: var(--color-panel);
+  color: var(--color-dim);
+  border-right: 1px solid var(--color-line);
+}
+
+.editor-host .cm-activeLine {
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+}
+
+.editor-host .cm-activeLineGutter {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.editor-host .cm-cursor {
+  border-left-color: var(--color-fg);
+}
+
+.editor-host .cm-selectionBackground,
+.editor-host .cm-editor ::selection {
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent) !important;
+}
+
+.editor-host .cm-panels {
+  background: var(--color-inset);
+  color: var(--color-fg);
+  border-color: var(--color-line);
+}
+
+.editor-host .cm-panels input,
+.editor-host .cm-panels button {
+  font-size: 14px;
+}
+
+.editor-host .cm-searchMatch {
+  background: color-mix(in srgb, var(--color-warn) 35%, transparent);
+}

@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lightngx VTS Monitor</title>
+    <script>
+        /* Apply persisted theme early to avoid a flash. */
+        (function () {
+            try {
+                var t = localStorage.getItem('vts-theme');
+                if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {}
+        })();
+    </script>
+    <style>
+        /* ---- Design tokens (Lightngx) ---- */
+        :root {
+            --bg:#eef0f3; --panel:#f8f9fb; --inset:#e9ebef; --ctrl:#e5e8ed; --ctrl-hi:#d9dde4;
+            --line:#dde0e6; --fg:#1c2128; --dim:#6a7280; --accent:#009639; --accent-hi:#007d30;
+            --accent-fg:#ffffff; --danger:#d3382c; --warn:#b57d00; --ok:#1a8a44;
+            --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+            --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+            color-scheme: light;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg:#111419; --panel:#191d24; --inset:#10131a; --ctrl:#252b35; --ctrl-hi:#2f3642;
+                --line:#272d38; --fg:#e4e8ee; --dim:#8b94a3; --accent:#26b356; --accent-hi:#34c765;
+                --accent-fg:#0c1a10; --danger:#e5584d; --warn:#d9a11a; --ok:#3dc06c;
+                color-scheme: dark;
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg:#111419; --panel:#191d24; --inset:#10131a; --ctrl:#252b35; --ctrl-hi:#2f3642;
+            --line:#272d38; --fg:#e4e8ee; --dim:#8b94a3; --accent:#26b356; --accent-hi:#34c765;
+            --accent-fg:#0c1a10; --danger:#e5584d; --warn:#d9a11a; --ok:#3dc06c;
+            color-scheme: dark;
+        }
+        :root[data-theme="light"] {
+            --bg:#eef0f3; --panel:#f8f9fb; --inset:#e9ebef; --ctrl:#e5e8ed; --ctrl-hi:#d9dde4;
+            --line:#dde0e6; --fg:#1c2128; --dim:#6a7280; --accent:#009639; --accent-hi:#007d30;
+            --accent-fg:#ffffff; --danger:#d3382c; --warn:#b57d00; --ok:#1a8a44;
+            color-scheme: light;
+        }
+
+        /* ---- Base ---- */
+        * { box-sizing: border-box; }
+        body { font-family: var(--sans); background: var(--bg); color: var(--fg); margin: 0; padding: 18px; font-size: 13px; -webkit-text-size-adjust: 100%; }
+        .container { max-width: 100%; padding: 0 6px; }
+
+        /* Slim themed scrollbars */
+        * { scrollbar-width: thin; scrollbar-color: var(--ctrl-hi) transparent; }
+        *::-webkit-scrollbar { width: 9px; height: 9px; }
+        *::-webkit-scrollbar-track { background: transparent; }
+        *::-webkit-scrollbar-thumb { background: var(--ctrl-hi); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+        *::-webkit-scrollbar-thumb:hover { background: var(--dim); border: 2px solid transparent; background-clip: padding-box; }
+        *::-webkit-scrollbar-corner { background: transparent; }
+
+        /* ---- Utils ---- */
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .font-mono { font-family: var(--mono); font-size: 1.02em; color: var(--fg); }
+        .hidden { display: none !important; }
+
+        /* ---- Header ---- */
+        .top-bar { background: var(--panel); padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+        .brand { font-size: 1.05rem; font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+        .brand .logo { width: 26px; height: 26px; display: block; }
+        .brand .name { color: var(--accent); letter-spacing: .01em; }
+        .brand .sub { color: var(--dim); font-weight: 500; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+        .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .sep { border-right: 1px solid var(--line); align-self: stretch; margin: 2px 3px; }
+
+        /* ---- Buttons ---- */
+        .btn { padding: 7px 12px; border: 1px solid transparent; border-radius: 8px; background: var(--ctrl); cursor: pointer; font-weight: 500; color: var(--fg); font-size: 12px; line-height: 1.1; transition: background .15s, color .15s, border-color .15s; font-family: var(--sans); }
+        .btn:hover { background: var(--ctrl-hi); }
+        .btn.active { background: var(--accent); color: var(--accent-fg); }
+        .btn.active:hover { background: var(--accent-hi); }
+
+        .theme-toggle { display: inline-flex; align-items: center; justify-content: center; padding: 7px; width: 36px; }
+        .theme-toggle svg { width: 16px; height: 16px; display: block; }
+
+        /* Pause button */
+        .btn-pause { min-width: 108px; text-align: center; }
+        .btn-pause.paused { background: color-mix(in srgb, var(--warn) 16%, var(--panel)); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { border-color: color-mix(in srgb, var(--warn) 45%, transparent); } 50% { border-color: color-mix(in srgb, var(--warn) 12%, transparent); } 100% { border-color: color-mix(in srgb, var(--warn) 45%, transparent); } }
+
+        /* Action buttons */
+        .btn-global-reset, .btn-reset { background: color-mix(in srgb, var(--warn) 12%, var(--ctrl)); color: var(--warn); }
+        .btn-global-reset:hover, .btn-reset:hover { background: color-mix(in srgb, var(--warn) 22%, var(--ctrl)); }
+        .btn-global-del, .btn-del { background: color-mix(in srgb, var(--danger) 12%, var(--ctrl)); color: var(--danger); }
+        .btn-global-del:hover, .btn-del:hover { background: color-mix(in srgb, var(--danger) 22%, var(--ctrl)); }
+
+        .btn-reset-all { color: var(--accent-fg); background: var(--warn); }
+        .btn-reset-all:hover { background: color-mix(in srgb, var(--warn) 85%, #000); }
+        .btn-del-all { color: var(--accent-fg); background: var(--danger); }
+        .btn-del-all:hover { background: color-mix(in srgb, var(--danger) 85%, #000); }
+
+        .btn-act { padding: 3px 8px; font-size: 11px; margin-left: 3px; border-radius: 6px; font-weight: 600; }
+
+        .group-actions { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+        .group-actions .btn { font-size: 11px; padding: 5px 9px; }
+
+        /* ---- Stats grid ---- */
+        .grid-main { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 22px; }
+        .card { background: var(--panel); padding: 14px 15px; border-radius: 10px; border: 1px solid var(--line); border-left: 3px solid var(--dim); }
+        .card h3 { margin: 0 0 10px 0; font-size: .72rem; text-transform: uppercase; color: var(--dim); letter-spacing: .07em; font-weight: 700; }
+        .card .val { font-size: 1.4em; font-weight: 700; color: var(--fg); }
+        .kv { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; font-size: 1em; align-items: baseline; }
+        .kv span:first-child { color: var(--dim); }
+        .kv span:last-child { font-weight: 600; color: var(--fg); font-family: var(--mono); font-size: .95em; text-align: right; word-break: break-word; }
+
+        /* ---- Panels / tables ---- */
+        .panel { background: var(--panel); border-radius: 10px; overflow: hidden; margin-bottom: 22px; border: 1px solid var(--line); }
+        .panel-head { padding: 11px 15px; background: var(--inset); border-bottom: 1px solid var(--line); font-weight: 600; color: var(--fg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .panel-title { display: flex; align-items: center; gap: 10px; font-size: .95rem; }
+        .count-badge { background: var(--ctrl); color: var(--dim); padding: 2px 9px; border-radius: 999px; font-size: .78em; font-weight: 600; font-family: var(--mono); }
+
+        .table-wrap { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 12px; }
+
+        thead { background: var(--panel); position: sticky; top: 0; z-index: 10; }
+
+        /* Group headers */
+        th.g-head { text-align: center; font-size: .7rem; letter-spacing: .06em; padding: 7px 8px; cursor: default; background: var(--panel); font-weight: 700; color: var(--dim); border-right: 1px solid var(--line); text-transform: uppercase; }
+        th.gc-def   { border-top: 2px solid var(--dim); }
+        th.gc-req   { border-top: 2px solid var(--accent); color: var(--accent); }
+        th.gc-traf  { border-top: 2px solid var(--dim); }
+        th.gc-res   { border-top: 2px solid var(--ok); color: var(--ok); }
+        th.gc-cache { border-top: 2px solid var(--accent); color: var(--accent); }
+        th.gc-state { border-top: 2px solid var(--warn); color: var(--warn); }
+        th.gc-act   { border-top: 2px solid var(--danger); color: var(--danger); }
+
+        /* Column headers */
+        th.col-head { padding: 8px 10px; text-align: left; font-weight: 600; color: var(--dim); border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); cursor: pointer; user-select: none; background: var(--inset); }
+        th.col-head:hover { background: var(--ctrl); color: var(--fg); }
+        th.col-act { text-align: center; width: 84px; }
+
+        /* Body */
+        td { padding: 6px 10px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); vertical-align: middle; }
+        tbody tr:last-child td { border-bottom: none; }
+        tr:hover td { background: color-mix(in srgb, var(--ctrl) 55%, transparent); }
+        td.text-right, th.col-head.text-right { font-family: var(--mono); }
+        td.font-mono { font-family: var(--mono); }
+
+        /* Value colors */
+        .val-rate { color: var(--dim); font-size: .95em; }
+        .val-good { color: var(--ok); font-weight: 600; }
+        .val-bad { color: var(--danger); font-weight: 600; }
+        .val-warn { color: var(--warn); }
+        .val-mute { color: var(--dim); }
+
+        .badge { padding: 2px 7px; border-radius: 6px; font-weight: 700; font-size: .72em; letter-spacing: .03em; }
+        .bg-up { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+        .bg-down { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+        .bg-back { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+
+        /* Filters */
+        tr.filter-row { background: var(--inset); }
+        tr.filter-row td { padding: 4px 6px; }
+        .filter-input { width: 100%; min-width: 38px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; font-size: 11px; background: var(--panel); color: var(--fg); font-family: var(--mono); }
+        .filter-input::placeholder { color: var(--dim); }
+        .filter-input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: -1px; border-color: transparent; }
+
+        /* Pagination */
+        .more-row { border-top: 1px solid var(--line); }
+        .btn-more { width: 100%; display: block; padding: 11px; text-align: center; background: var(--inset); color: var(--dim); font-weight: 600; cursor: pointer; border: none; transition: background .15s, color .15s; font-size: 12px; font-family: var(--sans); }
+        .btn-more:hover { background: var(--ctrl); color: var(--fg); }
+
+        th.sort-asc:after { content: '\2191'; margin-left: 3px; color: var(--accent); }
+        th.sort-desc:after { content: '\2193'; margin-left: 3px; color: var(--accent); }
+
+        /* ---- Mobile ---- */
+        @media (max-width: 650px) {
+            body { padding: 10px; }
+            .container { padding: 0; }
+            .top-bar { flex-direction: column; align-items: stretch; gap: 12px; padding: 12px; }
+            .brand { justify-content: center; }
+            .top-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+            .top-actions .btn { width: 100%; text-align: center; justify-content: center; padding: 9px; }
+            .theme-toggle { grid-column: span 2; }
+            .sep { display: none; }
+            .panel-head { flex-direction: column; align-items: stretch; text-align: center; }
+            .panel-title { justify-content: center; margin-bottom: 8px; }
+            .group-actions { justify-content: center; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+            .group-actions .btn { width: 100%; margin: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top-bar">
+        <div class="brand">
+            <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+                <polygon points="50 4 90 27 90 73 50 96 10 73 10 27" fill="var(--accent)"></polygon>
+                <text x="50" y="66" font-size="46" font-family="Arial, sans-serif" font-weight="bold" text-anchor="middle" fill="var(--accent-fg)">L</text>
+            </svg>
+            <span class="name">Lightngx</span>
+            <span class="sub">VTS Monitor</span>
+        </div>
+        <div class="top-actions">
+            <button id="btn-pause" class="btn btn-pause" onclick="app.togglePause()">&#10074;&#10074; Pause</button>
+            <span class="sep"></span>
+            <button class="btn btn-global-reset" onclick="app.globalControl('reset')">Global Reset</button>
+            <button class="btn btn-global-del" onclick="app.globalControl('delete')">Global Delete</button>
+            <span class="sep"></span>
+            <button id="btn-toggle" class="btn active" onclick="app.toggleFilters()">Filters</button>
+            <button class="btn" onclick="app.reset()">Reset View</button>
+            <button id="theme-toggle" class="btn theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme"></button>
+        </div>
+    </div>
+
+    <div class="grid-main" id="main-stats">Loading...</div>
+    <div id="content"></div>
+</div>
+
+<script>
+/* ---- Theme toggle (defaults to system) ---- */
+function themeEffective() {
+    var attr = document.documentElement.getAttribute('data-theme');
+    if (attr === 'dark' || attr === 'light') return attr;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+function updateThemeIcon() {
+    var el = document.getElementById('theme-toggle');
+    if (!el) return;
+    var dark = themeEffective() === 'dark';
+    // Show a sun in dark mode (click -> light), a moon in light mode (click -> dark).
+    el.innerHTML = dark
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+}
+function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('vts-theme', t); } catch (e) {}
+    updateThemeIcon();
+}
+function toggleTheme() { setTheme(themeEffective() === 'dark' ? 'light' : 'dark'); }
+if (window.matchMedia) {
+    try {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+            if (!document.documentElement.getAttribute('data-theme')) updateThemeIcon();
+        });
+    } catch (e) {}
+}
+
+var app = {
+    uri: '{{uri}}/format/json',
+    controlUri: '',
+    data: null,
+    history: {}, lastTime: 0, timeDelta: 0,
+    state: {
+        showFilters: true,
+        sortKey: 'requestCounter',
+        sortDir: 'desc',
+        filters: {},
+        expanded: {},
+        paused: false // Pause State
+    },
+    limit: 20,
+
+    init: function() {
+        updateThemeIcon();
+        var base = app.uri.split('/format/json')[0];
+        app.controlUri = base + '/control';
+        app.createSkeleton();
+        app.fetch();
+        setInterval(function() {
+            // Only fetch if not paused
+            if(!app.state.paused) app.fetch();
+        }, 1000);
+    },
+
+    // Toggle Pause/Resume
+    togglePause: function() {
+        app.state.paused = !app.state.paused;
+        var btn = document.getElementById('btn-pause');
+        if(app.state.paused) {
+            btn.innerHTML = '&#9658; Resume';
+            btn.classList.add('paused');
+        } else {
+            btn.innerHTML = '&#10074;&#10074; Pause';
+            btn.classList.remove('paused');
+            app.fetch(); // Immediate refresh on resume
+        }
+    },
+
+    esc: function(s) {
+        if (!s) return '';
+        return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    },
+
+    control: function(cmd, group, zone, callback) {
+        var url = app.controlUri + '?cmd=' + cmd + '&group=' + encodeURIComponent(group) + '&zone=' + encodeURIComponent(zone);
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if(xhr.status === 200) {
+                    if(callback) callback(); else app.fetch();
+                } else { console.error('Error:', xhr.status); }
+            }
+        };
+        xhr.open('GET', url, true);
+        xhr.send();
+    },
+
+    batchControl: function(cmd, apiGroup, filterGroupName) {
+        var isFilter = (apiGroup === 'filter');
+        var msg = 'Are you sure you want to ' + cmd.toUpperCase() + ' ';
+        if(isFilter) msg += 'ALL items in filter group "' + filterGroupName + '"?';
+        else msg += 'the entire group "' + (filterGroupName||apiGroup) + '"?';
+
+        if(!confirm(msg)) return;
+
+        if (isFilter) {
+            var groupData = app.data.filterZones[filterGroupName];
+            if (!groupData) { alert("No data found."); return; }
+            var keys = [];
+            for (var k in groupData) keys.push(k);
+            if(keys.length === 0) return;
+            var idx = 0;
+            var next = function() {
+                if (idx >= keys.length) { app.fetch(); return; }
+                var key = keys[idx++];
+                var zoneName = filterGroupName + '@' + key;
+                app.control(cmd, 'filter', zoneName, next);
+            };
+            next();
+        } else {
+            app.control(cmd, apiGroup, filterGroupName);
+        }
+    },
+
+    allFiltersControl: function(cmd) {
+        if(!confirm("WARNING: This will " + cmd.toUpperCase() + " ALL FILTER GROUPS (IPs, Countries, UserAgents, etc).")) return;
+        app.control(cmd, 'filter', '*');
+    },
+
+    globalControl: function(cmd) {
+        if(!confirm("WARNING: This will " + cmd.toUpperCase() + " EVERYTHING (Servers, Upstreams, All Filters).")) return;
+        app.control(cmd, '*', '*');
+    },
+
+    fetch: function() {
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                var d = JSON.parse(xhr.responseText);
+                var now = d.nowMsec;
+                app.timeDelta = (app.lastTime > 0) ? (now - app.lastTime) : 0;
+                app.lastTime = now;
+                app.data = d;
+                app.update();
+            }
+        };
+        xhr.open('GET', app.uri, true);
+        xhr.send();
+    },
+
+    createSkeleton: function() {
+        var html = '';
+        var tables = [
+            { id: 'serverZones', title: 'Server Zones', type: 'server', apiGroup: 'server', zoneScope: '*' },
+            { id: 'cacheZones', title: 'Cache Zones', type: 'cache', apiGroup: 'cache', zoneScope: '*' }
+        ];
+        for(var i=0; i<tables.length; i++) {
+            html += app.buildPanelHtml(tables[i].id, tables[i].title, tables[i].type, tables[i].apiGroup, tables[i].zoneScope);
+        }
+        document.getElementById('content').innerHTML = html;
+    },
+
+    buildPanelHtml: function(id, title, type, apiGroup, zoneScope) {
+        var html = '<div id="panel-'+id+'" class="panel hidden">';
+        html += '<div class="panel-head">';
+        html += '<div class="panel-title"><span>'+title+'</span><span id="cnt-'+id+'" class="count-badge">0</span></div>';
+        if(apiGroup) {
+            var sGroup = app.esc(apiGroup);
+            var sZone = app.esc(zoneScope);
+
+            html += '<div class="group-actions">';
+            if(apiGroup === 'filter') {
+                html += '<button class="btn btn-reset" onclick="app.batchControl(\'reset\', \''+sGroup+'\', \''+sZone+'\')">Reset Group</button>';
+                html += '<button class="btn btn-del" onclick="app.batchControl(\'delete\', \''+sGroup+'\', \''+sZone+'\')">Delete Group</button>';
+                html += '<button class="btn btn-reset-all" title="Reset ALL Filter Groups" onclick="app.allFiltersControl(\'reset\')">Reset ALL Filters</button>';
+                html += '<button class="btn btn-del-all" title="Delete ALL Filter Groups" onclick="app.allFiltersControl(\'delete\')">Delete ALL Filters</button>';
+            } else {
+                html += '<button class="btn btn-reset" onclick="app.batchControl(\'reset\', \''+sGroup+'\', \''+sZone+'\')">Reset Group</button>';
+                html += '<button class="btn btn-del" onclick="app.batchControl(\'delete\', \''+sGroup+'\', \''+sZone+'\')">Delete Group</button>';
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+        html += '<div class="table-wrap"><table><thead>';
+        html += app.buildHead(type, id);
+        html += '</thead><tbody id="tbody-'+id+'"></tbody></table></div>';
+        html += '<div id="more-'+id+'" class="more-row" style="display:none">';
+        html += '<button class="btn-more" onclick="app.toggleExpand(\''+id+'\')">Show More</button>';
+        html += '</div></div>';
+        return html;
+    },
+
+    buildHead: function(type, tid) {
+        var hGroup = '<tr>', hCol = '<tr>', hFilt = '<tr class="filter-row">';
+        var addCol = function(key, label, full, right, noFilter) {
+            hCol += app.th(tid, key, label, full, right);
+            hFilt += '<td>' + (noFilter ? '' : app.input(tid, key, key==='_name'?'text':'num')) + '</td>';
+        };
+        var addGroup = function(label, span, cls) {
+            hGroup += '<th class="g-head '+cls+'" colspan="'+span+'">'+label+'</th>';
+        };
+
+        addGroup('ZONE', 1, 'gc-def');
+        addCol('_name', 'Name', 'Zone Name', 0);
+
+        if(type === 'upstream') {
+            addGroup('STATE', 4, 'gc-state');
+            addCol('down', 'St', 'Status (Up/Down)', 0);
+            addCol('weight', 'Wgt', 'Server Weight', 1);
+            addCol('maxFails', 'MaxF', 'Max Fails', 1);
+            addCol('failTimeout', 'F/TO', 'Fail Timeout', 1);
+        }
+
+        if(type !== 'cache') {
+            addGroup('REQUESTS', 3, 'gc-req');
+            addCol('requestCounter', 'Tot', 'Total Requests', 1);
+            addCol('_reqRate', 'Req/s', 'Requests per Second', 1);
+            addCol('requestMsec', 'Time', 'Average Response Time (ms)', 1);
+            addGroup('TRAFFIC', 4, 'gc-traf');
+            addCol('inBytes', 'In', 'Incoming Traffic', 1);
+            addCol('_inRate', 'In/s', 'Incoming Traffic Rate', 1);
+            addCol('outBytes', 'Out', 'Outgoing Traffic', 1);
+            addCol('_outRate', 'Out/s', 'Outgoing Traffic Rate', 1);
+            addGroup('RESPONSES', 5, 'gc-res');
+            addCol('1xx', '1xx', '1xx Informational', 1);
+            addCol('2xx', '2xx', '2xx Success', 1);
+            addCol('3xx', '3xx', '3xx Redirection', 1);
+            addCol('4xx', '4xx', '4xx Client Error', 1);
+            addCol('5xx', '5xx', '5xx Server Error', 1);
+            addGroup('CACHE', 8, 'gc-cache');
+            addCol('hit', 'Hit', 'Cache Hits', 1);
+            addCol('miss', 'Miss', 'Cache Misses', 1);
+            addCol('bypass', 'Byp', 'Cache Bypasses', 1);
+            addCol('expired', 'Exp', 'Expired', 1);
+            addCol('stale', 'Sta', 'Stale', 1);
+            addCol('updating', 'Upd', 'Updating', 1);
+            addCol('revalidated', 'Rev', 'Revalidated', 1);
+            addCol('scarce', 'Scr', 'Scarce', 1);
+        } else {
+            addGroup('SIZE', 2, 'gc-def');
+            addCol('maxSize', 'Cap', 'Capacity', 1);
+            addCol('usedSize', 'Used', 'Used Size', 1);
+            addGroup('TRAFFIC', 2, 'gc-traf');
+            addCol('inBytes', 'In', 'Traffic In', 1);
+            addCol('outBytes', 'Out', 'Traffic Out', 1);
+            addGroup('CACHE STATS', 9, 'gc-cache');
+            addCol('_total', 'Total', 'Total Cache Events', 1);
+            addCol('hit', 'Hit', 'Hits', 1);
+            addCol('miss', 'Miss', 'Misses', 1);
+            addCol('bypass', 'Byp', 'Bypasses', 1);
+            addCol('expired', 'Exp', 'Expired', 1);
+            addCol('stale', 'Sta', 'Stale', 1);
+            addCol('updating', 'Upd', 'Updating', 1);
+            addCol('revalidated', 'Rev', 'Revalidated', 1);
+            addCol('scarce', 'Scr', 'Scarce', 1);
+        }
+
+        addGroup('ACTIONS', 1, 'gc-act');
+        hCol += '<th class="col-head col-act">Manage</th>';
+        hFilt += '<td></td>';
+
+        return hGroup + '</tr>' + hCol + '</tr>' + hFilt + '</tr>';
+    },
+
+    update: function() {
+        if(!app.data) return;
+        var d = app.data;
+        var reqRate = app.calcMainRate(d.connections.requests);
+        var stats = '';
+
+        stats += app.card('Server Info', [
+            ['Version', d.nginxVersion],
+            ['Now', app.fmtDate(d.nowMsec)],
+            ['Started', app.fmtDate(d.loadMsec)],
+            ['Uptime', app.fmtTime(d.nowMsec - d.loadMsec)]
+        ], 'var(--dim)');
+
+        stats += app.card('Connections', [['Active', app.fmtNum(d.connections.active)],['Reading', d.connections.reading],['Writing', d.connections.writing],['Waiting', d.connections.waiting]], 'var(--ok)');
+        stats += app.card('Requests', [['Accepted', app.fmtNum(d.connections.accepted)],['Handled', app.fmtNum(d.connections.handled)],['Total', app.fmtNum(d.connections.requests)],['Req/s', app.fmtNum(reqRate)]], 'var(--accent)');
+        stats += app.card('Shared Memory', [['Name', d.sharedZones.name],['Size', app.fmtBytes(d.sharedZones.maxSize)],['Used', app.fmtBytes(d.sharedZones.usedSize)],['Nodes', app.fmtNum(d.sharedZones.usedNode)]], 'var(--warn)');
+        document.getElementById('main-stats').innerHTML = stats;
+
+        app.processTable('serverZones', d.serverZones, 'server', 'server', '');
+
+        if(d.filterZones) {
+             for(var grp in d.filterZones) {
+                 var grpData = [];
+                 for(var k in d.filterZones[grp]) {
+                     var it = d.filterZones[grp][k]; it._name = k; grpData.push(it);
+                 }
+                 var id = 'filter-'+app.hexId(grp);
+                 if(!document.getElementById('panel-'+id)) {
+                     var div = document.createElement('div');
+                     div.innerHTML = app.buildPanelHtml(id, 'Filter: '+grp, 'server', 'filter', grp);
+                     document.getElementById('content').appendChild(div.firstChild);
+                 }
+                 app.processTableRows(id, grpData, 'server', 'filter', grp + '@');
+             }
+        }
+
+        if(d.upstreamZones) {
+             for(var grp in d.upstreamZones) {
+                 var grpData = [];
+                 for(var i=0; i<d.upstreamZones[grp].length; i++) {
+                     var it = d.upstreamZones[grp][i]; it._name = it.server; grpData.push(it);
+                 }
+                 var isNoGroup = (grp === '::nogroups');
+                 var safeGrpId = isNoGroup ? 'nogroups' : grp;
+                 var id = 'upstream-' + app.hexId(safeGrpId);
+                 var title = isNoGroup ? 'Upstream (No Groups)' : 'Upstream: ' + grp;
+                 var apiGroup = isNoGroup ? 'upstream@alone' : ('upstream@' + grp);
+                 var apiZonePrefix = isNoGroup ? '' : (grp + '@');
+
+                 if(!document.getElementById('panel-'+id)) {
+                     var div = document.createElement('div');
+                     div.innerHTML = app.buildPanelHtml(id, title, 'upstream', apiGroup, '*');
+                     document.getElementById('content').appendChild(div.firstChild);
+                 }
+                 app.processTableRows(id, grpData, 'upstream', apiGroup, apiZonePrefix);
+             }
+        }
+
+        if(d.cacheZones) app.processTable('cacheZones', d.cacheZones, 'cache', 'cache', '');
+
+        var fr = document.querySelectorAll('.filter-row');
+        for(var i=0; i<fr.length; i++) fr[i].style.display = app.state.showFilters ? 'table-row' : 'none';
+
+        var btn = document.getElementById('btn-toggle');
+        btn.innerHTML = app.state.showFilters ? 'Hide Filters' : 'Show Filters';
+        btn.className = app.state.showFilters ? 'btn active' : 'btn';
+    },
+
+    processTable: function(id, data, type, apiGroup, apiZonePrefix) {
+        var rows = [];
+        if(Array.isArray(data)) rows = data;
+        else for(var k in data) { var it=data[k]; it._name=k; rows.push(it); }
+        app.processTableRows(id, rows, type, apiGroup, apiZonePrefix);
+    },
+
+    processTableRows: function(id, rows, type, apiGroup, apiZonePrefix) {
+        var panel = document.getElementById('panel-'+id);
+        if(!panel) return;
+        if(rows.length===0) { panel.classList.add('hidden'); return; }
+        panel.classList.remove('hidden');
+
+        for(var i=0; i<rows.length; i++) {
+            if(type !== 'cache') app.calcRates(id, rows[i]);
+            else {
+                var r = rows[i].responses;
+                rows[i]._total = (r.hit||0)+(r.miss||0)+(r.bypass||0)+(r.expired||0)+(r.stale||0)+(r.updating||0)+(r.revalidated||0)+(r.scarce||0);
+            }
+        }
+
+        var f = app.state.filters;
+        var res = [];
+        for(var i=0; i<rows.length; i++) {
+            var r = rows[i];
+            var m = true;
+            for(var key in f) {
+                if(key.indexOf(id+'-') !== 0) continue;
+                var col = key.substring(id.length + 1);
+                var val = f[key].toLowerCase();
+                if(!val) continue;
+                var dVal = app.getValue(r, col);
+                if(col==='_name') { if(String(dVal).toLowerCase().indexOf(val)===-1) m=false; }
+                else { if(parseFloat(dVal) < parseFloat(val)) m=false; }
+            }
+            if(m) res.push(r);
+        }
+        rows = res;
+        document.getElementById('cnt-'+id).innerText = rows.length;
+
+        var k = app.state.sortKey;
+        var dir = app.state.sortDir === 'asc' ? 1 : -1;
+        rows.sort(function(a, b) {
+            var vA = app.getValue(a, k); var vB = app.getValue(b, k);
+            if(vA<vB) return -1*dir; if(vA>vB) return 1*dir; return 0;
+        });
+
+        var totalRows = rows.length;
+        var isExpanded = app.state.expanded[id];
+        var moreBtnDiv = document.getElementById('more-'+id);
+        if(totalRows > app.limit) {
+            moreBtnDiv.style.display = 'block';
+            var btn = moreBtnDiv.querySelector('button');
+            if(isExpanded) {
+                btn.innerHTML = 'Show Less';
+            } else {
+                btn.innerHTML = 'Show ' + (totalRows - app.limit) + ' More...';
+                rows = rows.slice(0, app.limit);
+            }
+        } else { moreBtnDiv.style.display = 'none'; }
+
+        var tbody = document.getElementById('tbody-'+id);
+        var existingIds = [];
+        for(var i=0; i<tbody.children.length; i++) existingIds.push(tbody.children[i].id);
+
+        var newIds = [];
+        for(var i=0; i<rows.length; i++) newIds.push('r-'+id+'-'+app.hexId(rows[i]._name));
+
+        var rebuild = false;
+        if(existingIds.length !== newIds.length) rebuild = true;
+        else { for(var i=0; i<existingIds.length; i++) if(existingIds[i] !== newIds[i]) { rebuild = true; break; } }
+
+        if(rebuild) {
+            var html = '';
+            for(var i=0; i<rows.length; i++) html += app.buildRow(id, rows[i], type, apiGroup, apiZonePrefix);
+            tbody.innerHTML = html;
+        } else {
+            for(var i=0; i<rows.length; i++) app.updateRowDom(id, rows[i], type);
+        }
+
+        var ths = document.querySelectorAll('#panel-'+id+' th.col-head');
+        for(var i=0; i<ths.length; i++) {
+             ths[i].className = ths[i].className.replace(/sort-(asc|desc)/g, '').trim();
+             if(ths[i].getAttribute('data-key') === app.state.sortKey) ths[i].className += ' sort-' + app.state.sortDir;
+        }
+    },
+
+    toggleExpand: function(id) { app.state.expanded[id] = !app.state.expanded[id]; app.update(); },
+
+    buildRow: function(tid, r, type, apiGroup, apiZonePrefix) {
+        var rid = 'r-'+tid+'-'+app.hexId(r._name);
+        var apiZone = (apiZonePrefix || '') + r._name;
+        // Escape strings for click handler
+        var sGroup = app.esc(apiGroup);
+        var sZone = app.esc(apiZone);
+
+        var h = '<tr id="'+rid+'">';
+        h += '<td class="font-mono"><b>'+r._name+'</b></td>';
+
+        if(type==='upstream') {
+            var st = r.down?'DOWN':(r.backup?'BACK':'UP');
+            var bg = r.down?'bg-down':(r.backup?'bg-back':'bg-up');
+            h += '<td class="text-center"><span class="badge '+bg+'">'+st+'</span></td>';
+            h += app.td(rid,'wgt',r.weight) + app.td(rid,'mxf',r.maxFails) + app.td(rid,'fto',r.failTimeout);
+        }
+
+        if(type!=='cache') {
+            h += app.td(rid, 'req', app.fmtNum(r.requestCounter));
+            h += app.td(rid, 'reqRate', app.fmtNum(r._reqRate), 'val-rate');
+            h += app.td(rid, 'time', (r.requestMsec||0)+'ms', 'val-mute');
+            h += app.td(rid, 'in', app.fmtBytes(r.inBytes));
+            h += app.td(rid, 'inRate', app.fmtBytes(r._inRate), 'val-rate');
+            h += app.td(rid, 'out', app.fmtBytes(r.outBytes));
+            h += app.td(rid, 'outRate', app.fmtBytes(r._outRate), 'val-rate');
+            h += app.td(rid, '1xx', app.fmtNum(r.responses['1xx']), 'val-mute');
+            h += app.td(rid, '2xx', app.fmtNum(r.responses['2xx']), 'val-good');
+            h += app.td(rid, '3xx', app.fmtNum(r.responses['3xx']), 'val-mute');
+            h += app.td(rid, '4xx', app.fmtNum(r.responses['4xx']), 'val-warn');
+            h += app.td(rid, '5xx', app.fmtNum(r.responses['5xx']), 'val-bad');
+            h += app.td(rid, 'hit', app.fmtNum(r.responses.hit));
+            h += app.td(rid, 'miss', app.fmtNum(r.responses.miss));
+            h += app.td(rid, 'byp', app.fmtNum(r.responses.bypass));
+            h += app.td(rid, 'exp', app.fmtNum(r.responses.expired));
+            h += app.td(rid, 'sta', app.fmtNum(r.responses.stale));
+            h += app.td(rid, 'upd', app.fmtNum(r.responses.updating));
+            h += app.td(rid, 'rev', app.fmtNum(r.responses.revalidated));
+            h += app.td(rid, 'scr', app.fmtNum(r.responses.scarce));
+        } else {
+            h += app.td(rid, 'cap', app.fmtBytes(r.maxSize));
+            h += app.td(rid, 'used', app.fmtBytes(r.usedSize));
+            h += app.td(rid, 'in', app.fmtBytes(r.inBytes));
+            h += app.td(rid, 'out', app.fmtBytes(r.outBytes));
+            h += app.td(rid, 'tot', app.fmtNum(r._total));
+            h += app.td(rid, 'hit', app.fmtNum(r.responses.hit), 'val-good');
+            h += app.td(rid, 'miss', app.fmtNum(r.responses.miss), 'val-warn');
+            h += app.td(rid, 'byp', app.fmtNum(r.responses.bypass));
+            h += app.td(rid, 'exp', app.fmtNum(r.responses.expired));
+            h += app.td(rid, 'sta', app.fmtNum(r.responses.stale));
+            h += app.td(rid, 'upd', app.fmtNum(r.responses.updating));
+            h += app.td(rid, 'rev', app.fmtNum(r.responses.revalidated));
+            h += app.td(rid, 'scr', app.fmtNum(r.responses.scarce));
+        }
+
+        h += '<td class="text-center">';
+        h += '<button class="btn btn-act btn-reset" title="Reset" onclick="app.control(\'reset\', \''+sGroup+'\', \''+sZone+'\')">R</button>';
+        h += '<button class="btn btn-act btn-del" title="Delete" onclick="app.control(\'delete\', \''+sGroup+'\', \''+sZone+'\')">D</button>';
+        h += '</td>';
+        h += '</tr>';
+        return h;
+    },
+
+    updateRowDom: function(tid, r, type) {
+        var rid = 'r-'+tid+'-'+app.hexId(r._name);
+        if(type==='upstream') {
+            app.setTxt(rid,'wgt',r.weight); app.setTxt(rid,'mxf',r.maxFails); app.setTxt(rid,'fto',r.failTimeout);
+        }
+        if(type!=='cache') {
+            app.setTxt(rid, 'req', app.fmtNum(r.requestCounter));
+            app.setTxt(rid, 'reqRate', app.fmtNum(r._reqRate));
+            app.setTxt(rid, 'time', (r.requestMsec||0)+'ms');
+            app.setTxt(rid, 'in', app.fmtBytes(r.inBytes));
+            app.setTxt(rid, 'inRate', app.fmtBytes(r._inRate));
+            app.setTxt(rid, 'out', app.fmtBytes(r.outBytes));
+            app.setTxt(rid, 'outRate', app.fmtBytes(r._outRate));
+            app.setTxt(rid, '1xx', app.fmtNum(r.responses['1xx']));
+            app.setTxt(rid, '2xx', app.fmtNum(r.responses['2xx']));
+            app.setTxt(rid, '3xx', app.fmtNum(r.responses['3xx']));
+            app.setTxt(rid, '4xx', app.fmtNum(r.responses['4xx']));
+            app.setTxt(rid, '5xx', app.fmtNum(r.responses['5xx']));
+            app.setTxt(rid, 'hit', app.fmtNum(r.responses.hit));
+            app.setTxt(rid, 'miss', app.fmtNum(r.responses.miss));
+            app.setTxt(rid, 'byp', app.fmtNum(r.responses.bypass));
+            app.setTxt(rid, 'exp', app.fmtNum(r.responses.expired));
+            app.setTxt(rid, 'sta', app.fmtNum(r.responses.stale));
+            app.setTxt(rid, 'upd', app.fmtNum(r.responses.updating));
+            app.setTxt(rid, 'rev', app.fmtNum(r.responses.revalidated));
+            app.setTxt(rid, 'scr', app.fmtNum(r.responses.scarce));
+        } else {
+            app.setTxt(rid, 'cap', app.fmtBytes(r.maxSize));
+            app.setTxt(rid, 'used', app.fmtBytes(r.usedSize));
+            app.setTxt(rid, 'in', app.fmtBytes(r.inBytes));
+            app.setTxt(rid, 'out', app.fmtBytes(r.outBytes));
+            app.setTxt(rid, 'tot', app.fmtNum(r._total));
+            app.setTxt(rid, 'hit', app.fmtNum(r.responses.hit));
+            app.setTxt(rid, 'miss', app.fmtNum(r.responses.miss));
+            app.setTxt(rid, 'byp', app.fmtNum(r.responses.bypass));
+            app.setTxt(rid, 'exp', app.fmtNum(r.responses.expired));
+            app.setTxt(rid, 'sta', app.fmtNum(r.responses.stale));
+            app.setTxt(rid, 'upd', app.fmtNum(r.responses.updating));
+            app.setTxt(rid, 'rev', app.fmtNum(r.responses.revalidated));
+            app.setTxt(rid, 'scr', app.fmtNum(r.responses.scarce));
+        }
+    },
+
+    hexId: function(s) {
+        var h = '';
+        for(var i=0; i<s.length; i++) h += s.charCodeAt(i).toString(16);
+        return h;
+    },
+
+    getValue: function(r, k) {
+        if(r.hasOwnProperty(k)) return r[k];
+        if(r.hasOwnProperty('_'+k)) return r['_'+k];
+        if(k==='_reqRate') return r._reqRate;
+        if(k==='_inRate') return r._inRate;
+        if(k==='_outRate') return r._outRate;
+        if(k==='_name') return r._name;
+        if(k==='_total') return r._total;
+        if(r.responses && r.responses.hasOwnProperty(k)) return r.responses[k];
+        return 0;
+    },
+    calcRates: function(id, r) {
+        var k = id + '|' + r._name;
+        var p = app.history[k];
+        r._reqRate = 0; r._inRate = 0; r._outRate = 0;
+        if (p && app.timeDelta > 0) {
+            var dR = r.requestCounter - p.req;
+            var dI = r.inBytes - p.in;
+            var dO = r.outBytes - p.out;
+            if(dR >= 0) r._reqRate = Math.floor((dR * 1000) / app.timeDelta);
+            if(dI >= 0) r._inRate = Math.floor((dI * 1000) / app.timeDelta);
+            if(dO >= 0) r._outRate = Math.floor((dO * 1000) / app.timeDelta);
+        }
+        app.history[k] = { req: r.requestCounter, in: r.inBytes, out: r.outBytes };
+    },
+    calcMainRate: function(c) {
+        var p = app.history['main_req'] || 0;
+        var r = 0;
+        if(app.timeDelta > 0 && p > 0 && c >= p) r = Math.floor(((c - p) * 1000) / app.timeDelta);
+        app.history['main_req'] = c;
+        return r;
+    },
+    handleInput: function(el, tid, col) { app.state.filters[tid+'-'+col] = el.value; app.update(); },
+    toggleFilters: function() { app.state.showFilters = !app.state.showFilters; app.update(); },
+    setSort: function(k) {
+        if(app.state.sortKey===k) app.state.sortDir = (app.state.sortDir==='asc'?'desc':'asc');
+        else { app.state.sortKey=k; app.state.sortDir='desc'; }
+        app.update();
+    },
+    reset: function() {
+        app.state.filters = {};
+        app.state.sortKey = 'requestCounter';
+        app.state.sortDir = 'desc';
+        var inps = document.querySelectorAll('.filter-input');
+        for(var i=0; i<inps.length; i++) inps[i].value = '';
+        app.update();
+    },
+    td: function(rid, k, v, c) { return '<td id="c-'+rid+'-'+k+'" class="text-right '+(c||'')+'">'+v+'</td>'; },
+    setTxt: function(rid, k, v) { var el = document.getElementById('c-'+rid+'-'+k); if(el) el.innerText = v; },
+    card: function(t, rows, c) {
+        var h = '<div class="card" style="border-left-color:'+c+'"><h3>'+t+'</h3>';
+        for(var i=0; i<rows.length; i++) h += '<div class="kv"><span>'+rows[i][0]+'</span><span>'+rows[i][1]+'</span></div>';
+        return h + '</div>';
+    },
+    th: function(tid, k, l, full, r) { return '<th title="'+full+'" onclick="app.setSort(\''+k+'\')" data-key="'+k+'" class="col-head '+(r?'text-right':'')+'">'+l+'</th>'; },
+    input: function(tid, col, type) { return '<input class="filter-input" placeholder="'+(type==='text'?'Filter...':'> 0')+'" onkeyup="app.handleInput(this,\''+tid+'\',\''+col+'\')">'; },
+    fmtNum: function(n) { return new Intl.NumberFormat().format(n || 0); },
+    fmtBytes: function(b) {
+        if (!b && b !== 0) return '0 B';
+        if (b === 0) return '0 B';
+        var i = Math.floor(Math.log(b) / Math.log(1024));
+        return (b / Math.pow(1024, i)).toFixed(2) + ' ' + ['B', 'KiB', 'MiB', 'GiB'][i];
+    },
+
+    // New Date Formatter for exact timestamps (Now, Load)
+    fmtDate: function(ms) {
+        if (!ms) return '-';
+        var d = new Date(ms);
+        var pad = function(n) { return n<10 ? '0'+n : n; };
+        return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' +
+               pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    },
+
+    // Updated Duration Formatter (Uptime)
+    fmtTime: function(ms) {
+        if (!ms && ms !== 0) return '-';
+        if (ms < 1000) return ms + 'ms';
+
+        var secs = Math.floor(ms / 1000);
+        var y = Math.floor(secs / 31536000); // 365 days
+        var d = Math.floor((secs % 31536000) / 86400);
+        var h = Math.floor((secs % 86400) / 3600);
+        var m = Math.floor((secs % 3600) / 60);
+        var s = secs % 60;
+
+        var out = '';
+        if(y>0) out += y+'y ';
+        if(d>0) out += d+'d ';
+        if(h>0) out += h+'h ';
+        if(m>0) out += m+'m ';
+        out += s+'s';
+
+        return out.trim();
+    }
+};
+
+window.onload = app.init;
+</script>
+</body>
+</html>

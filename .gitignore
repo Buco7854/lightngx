@@ -1,0 +1,13 @@
+/lightngx
+docker/vts/*
+!docker/vts/README.md
+node_modules/
+web/dist/*
+!web/dist/index.html
+web/app/dist/
+
+# Docusaurus docs site
+website/build/
+website/.docusaurus/
+*.local
+.DS_Store

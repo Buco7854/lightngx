@@ -1,0 +1,46 @@
+# Minimal lightngx deployment. Copy .env.example to .env to override defaults.
+
+services:
+  nginx:
+    image: ghcr.io/buco7854/lightngx:latest
+    container_name: nginx
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${UI_BIND:-127.0.0.1}:${UI_PORT:-9000}:9000"   # management UI
+    volumes:
+      - "${NGINX_CONF_DIR:-./nginx/conf}:/etc/nginx"      # seeded if empty
+      - "${NGINX_LOG_DIR:-./nginx/logs}:/var/log/nginx"
+      - "${DATA_DIR:-./lightngx}:/var/lib/lightngx"       # session key + users database
+    environment:
+      - TZ=${TZ:-UTC}
+      - LN_SECURE_COOKIES=${LN_SECURE_COOKIES:-true}
+      - LN_SESSION_TTL=${LN_SESSION_TTL:-12h}
+      - LN_TRUSTED_PROXIES=${LN_TRUSTED_PROXIES:-}
+      - LN_SITES=${LN_SITES:-true}
+      - LN_MAINTENANCE=${LN_MAINTENANCE:-true}
+      - LN_MAINTENANCE_PAGE=${LN_MAINTENANCE_PAGE:-}
+      - LN_STREAMS=${LN_STREAMS:-true}
+      - LN_DOCKER_LOGS=${LN_DOCKER_LOGS:-false}
+      - LN_LOGROTATE=${LN_LOGROTATE:-true}
+      - LN_ADMIN_USER=${LN_ADMIN_USER:-}
+      - LN_ADMIN_PASSWORD_HASH=${LN_ADMIN_PASSWORD_HASH:-}
+      - LN_MFA_REQUIRED_ROLES=${LN_MFA_REQUIRED_ROLES-admin}
+      - LN_WEBAUTHN_RPID=${LN_WEBAUTHN_RPID:-}
+      - LN_OIDC_ISSUER=${LN_OIDC_ISSUER:-}
+      - LN_OIDC_CLIENT_ID=${LN_OIDC_CLIENT_ID:-}
+      - LN_OIDC_CLIENT_SECRET=${LN_OIDC_CLIENT_SECRET:-}
+      - LN_OIDC_REDIRECT_URL=${LN_OIDC_REDIRECT_URL:-}
+      - LN_OIDC_GROUPS_CLAIM=${LN_OIDC_GROUPS_CLAIM:-groups}
+      - LN_OIDC_ALLOWED_GROUPS=${LN_OIDC_ALLOWED_GROUPS:-}
+      - LN_OIDC_ADMIN_GROUPS=${LN_OIDC_ADMIN_GROUPS:-}
+      # full image only: a key turns the CrowdSec bouncer on.
+      - CROWDSEC_LAPI_URL=${CROWDSEC_LAPI_URL:-}
+      - CROWDSEC_LAPI_KEY=${CROWDSEC_LAPI_KEY:-}
