@@ -81,7 +81,9 @@ const en = {
   testOK: "Configuration test passed",
   testFailed: "Configuration test failed",
   reloaded: "nginx reloaded",
-  restarted: "nginx restarted",
+  restarting: "Restarting nginx…",
+  nginxBack: "nginx is back up",
+  restartSlow: "nginx has not come back yet, check the logs",
   actionFailed: "Action failed",
 
   files: "Files",
@@ -324,7 +326,9 @@ const fr: typeof en = {
   testOK: "Test de configuration réussi",
   testFailed: "Échec du test de configuration",
   reloaded: "nginx rechargé",
-  restarted: "nginx redémarré",
+  restarting: "Redémarrage de nginx…",
+  nginxBack: "nginx est de retour",
+  restartSlow: "nginx n'est pas encore revenu, vérifiez les journaux",
   actionFailed: "Échec de l'action",
 
   files: "Fichiers",

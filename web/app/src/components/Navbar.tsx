@@ -41,6 +41,20 @@ export default function Navbar({
   const ask = useConfirm();
   const [busy, setBusy] = useState(false);
 
+  // waitForNginx polls the status endpoint until nginx reports up, so a
+  // restart can notify the moment it is back rather than optimistically.
+  async function waitForNginx(): Promise<boolean> {
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      try {
+        if ((await api.status()).running) return true;
+      } catch {
+        /* keep polling */
+      }
+    }
+    return false;
+  }
+
   async function run(kind: "test" | "reload" | "restart") {
     if (kind === "reload" && !(await ask({ title: t.reload, message: t.confirmReload }))) return;
     if (kind === "restart" && !(await ask({ title: t.restart, message: t.confirmRestart, danger: true }))) return;
@@ -50,8 +64,12 @@ export default function Navbar({
       if (kind === "test") {
         toast(res.ok ? t.testOK : t.testFailed, res.ok ? "info" : "error");
         output(t.output, res.output ?? "");
+      } else if (kind === "reload") {
+        toast(t.reloaded);
       } else {
-        toast(kind === "reload" ? t.reloaded : t.restarted);
+        toast(t.restarting);
+        const back = await waitForNginx();
+        toast(back ? t.nginxBack : t.restartSlow, back ? "info" : "warn");
       }
     } catch (err) {
       toast(t.actionFailed, "error");
