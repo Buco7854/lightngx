@@ -84,6 +84,8 @@ services:
       - LN_NGINX_CONF=${LN_NGINX_CONF:-/etc/nginx/nginx.conf}
       - LN_NGINX_CONF_DIR=${LN_NGINX_CONF_DIR:-/etc/nginx}
       - LN_NGINX_PID=${LN_NGINX_PID:-/var/run/nginx.pid}
+      - LN_FIX_CONFIG_PERMS=${LN_FIX_CONFIG_PERMS:-true}
+      - LN_NGINX_USER=${LN_NGINX_USER:-}
       - LN_SITES_AVAILABLE_DIR=${LN_SITES_AVAILABLE_DIR:-}
       - LN_SITES_ENABLED_DIR=${LN_SITES_ENABLED_DIR:-}
       - LN_STREAMS_AVAILABLE_DIR=${LN_STREAMS_AVAILABLE_DIR:-}
