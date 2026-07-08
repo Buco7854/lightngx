@@ -1,47 +1,71 @@
 import CodeBlock from "@theme/CodeBlock";
-import lightCompose from "!!raw-loader!@site/../docker-compose.yml";
-import lightEnv from "!!raw-loader!@site/../.env.example";
-import fullCompose from "!!raw-loader!@site/../example/full/docker-compose.yml";
+import lightCompose from "!!raw-loader!@site/../example/light/docker-compose.yml";
+import lightEnv from "!!raw-loader!@site/../example/light/.env.example";
 
 # Getting started
 
-The quickest way to run Lightngx is with Docker Compose.
+Lightngx is a single container: nginx plus a web UI to manage it. The quickest
+way to run it is with Docker Compose.
 
-```sh
-mkdir -p nginx/conf nginx/logs lightngx
-cp .env.example .env          # optional, every value has a default
-docker compose up -d
-```
+## Run it
 
-Open the UI on **port 9000**. On the first run it shows a setup page where you
-create the first administrator.
-
-This is the `docker-compose.yml` those commands use. Every setting reads from
-an environment variable with a sensible default, so an untouched copy just
-works and `.env` only holds what you change.
+You do not need to clone anything. Save this as `docker-compose.yml` in an empty
+directory:
 
 <CodeBlock language="yaml" title="docker-compose.yml">{lightCompose}</CodeBlock>
 
-<details>
-<summary>The matching <code>.env.example</code></summary>
+Every setting reads an environment variable that already has a sensible default,
+so this runs as-is. To change any value, save a `.env` beside the compose; here
+is every variable Lightngx reads, each at its default:
 
-<CodeBlock language="ini" title=".env.example">{lightEnv}</CodeBlock>
+<details>
+<summary>The full <code>.env</code> reference</summary>
+
+<CodeBlock language="ini" title=".env">{lightEnv}</CodeBlock>
 
 </details>
 
+Then start it:
+
+```sh
+docker compose up -d
+```
+
+The compose publishes the UI on `127.0.0.1:9000`, so **on the machine running
+it** open **`http://localhost:9000`**. The first visit shows a setup page where
+you create the first administrator, and you are in.
+
+That is the whole quick start. The rest of this page is reference: reaching the
+UI from another machine, choosing an image, pre-seeding the admin, where data
+lives, and running behind a proxy.
+
+## Reaching the UI from another machine
+
+Port 9000 is bound to `127.0.0.1` on purpose, so nothing on your network hits
+the UI directly. For local access Lightngx seeds `conf.d/lightngx.conf` on the
+first start: a reverse proxy on `:9001` that only answers private-network
+addresses. Publish that port (uncomment `- "9001:9001"` in the compose) and
+browse `http://<host>:9001` from your LAN. It runs over plain HTTP, so set
+`LN_SECURE_COOKIES=false` or the login cookie (which is `Secure`-flagged) never
+sticks and you loop on the login page.
+
+For anything reachable from outside your LAN, do not expose 9000 or 9001; put a
+TLS front proxy in front (below), and for a public deployment add an
+[auth gate](./hardened.md).
+
 ## Light or full image
 
-The default `ghcr.io/buco7854/lightngx:latest` (`:light`) is nginx plus the
-Lightngx binary and nothing else, which is all most setups need. The
-`:full` tag adds an in-nginx CrowdSec WAF bouncer, traffic stats, and a lua
-runtime for OIDC/TOTP auth gates. Pick `:full` only if you want those
-extras. See [Light and full images](./images.md) for what each turns on and
-a complete example stack.
+| Tag | Adds | Pick it when |
+| --- | --- | --- |
+| `:latest` (`:light`) | nginx + the Lightngx binary, nothing else | most setups; smallest image |
+| `:full` | an in-nginx CrowdSec WAF bouncer, traffic stats (VTS), and the lua runtime for OIDC/TOTP auth gates | you want a WAF, stats, or an [auth gate](./hardened.md) |
+
+See [Light and full images](./images.md) for what each extra turns on and a
+complete example stack.
 
 ## Pre-seeding the first admin
 
-If you would rather not use the setup page, generate a bcrypt hash and pass it
-in. The setup page is then skipped.
+To skip the setup page, generate a bcrypt hash and pass it in:
 
 ```sh
 docker run --rm -i ghcr.io/buco7854/lightngx:latest lightngx hash
@@ -52,8 +76,8 @@ change made later in the app is kept.
 
 ## Where your data lives
 
-`/etc/nginx` is seeded from the image template on the first start, but only
-when the bind mount is empty. After that Lightngx never touches it on its own.
+`/etc/nginx` is seeded from the image template on the first start, but only when
+the bind mount is empty. After that Lightngx never touches it on its own.
 
 Accounts and settings live in an SQLite file under the data directory
 (`lightngx/` in the example above). Keep that volume if you want your users,
@@ -63,8 +87,8 @@ sessions and settings to survive a container rebuild.
 Set `LN_SESSION_SECRET` to a fixed value of 32 or more characters so session
 cookies survive a container recreation. Left unset it is generated at each
 start, which logs everyone out on restart. Stored TOTP secrets are encrypted
-with a separate key kept in the data directory, so keep that volume to
-preserve two-factor enrollments.
+with a separate key kept in the data directory, so keep that volume to preserve
+two-factor enrollments.
 :::
 
 ## Running behind a front proxy
@@ -86,9 +110,15 @@ location / {
 
 Terminate TLS at the proxy, keep `LN_SECURE_COOKIES=true`, and set
 `LN_TRUSTED_PROXIES` to the proxy address so forwarded client IPs are trusted
-for audit logs and rate limiting. See [Security](./security.md) for the
-details.
+for audit logs and rate limiting. See [Security](./security.md) for the details.
 
 WebAuthn needs a stable hostname. It works when you reach the UI directly or
 through a proxy that preserves the `Host` header, but not over a bare IP
 address. Use `localhost` or a real domain.
+
+## Next steps
+
+- [Sites and streams](./sites.md): manage vhosts and TCP/UDP proxies.
+- [Accounts and access](./accounts.md): users, roles, two-factor and OIDC login.
+- [Security](./security.md): how Lightngx is hardened, and how to expose it.
+- [Hardened setup](./hardened.md): add an auth gate in front of the UI.

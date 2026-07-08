@@ -25,7 +25,8 @@ Full guides live at **https://buco7854.github.io/lightngx/**
 ## Quick start
 
 ```sh
-mkdir -p nginx/conf nginx/logs lightngx
+git clone https://github.com/buco7854/lightngx
+cd lightngx/example/light
 cp .env.example .env          # optional, every value has a default
 docker compose up -d
 ```

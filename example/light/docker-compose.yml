@@ -1,11 +1,10 @@
-# Full image (light + CrowdSec bouncer, VTS, lua-resty-openidc) with the
-# CrowdSec LAPI and its Postgres database. Same layout as the light example,
-# plus CrowdSec. Fill the required secrets in .env (or hardcode them below),
-# then: docker compose up -d
+# Light image (nginx + the lightngx binary). Values come from .env; edit that,
+# or replace any ${VAR:-default} below with a literal value to keep everything
+# in this file. The full and hardened examples share this same layout.
 
 services:
   nginx:
-    image: ghcr.io/buco7854/lightngx:full
+    image: ghcr.io/buco7854/lightngx:latest
     container_name: nginx
     restart: unless-stopped
     security_opt:
@@ -21,14 +20,10 @@ services:
       # LAN access via the seeded conf.d/lightngx.conf proxy (:9001, HTTP,
       # private IPs only). Uncomment to publish it, and set LN_SECURE_COOKIES=false.
       # - "9001:9001"
-      # Optional VTS traffic-status page. Copy conf.d/20-vhost-traffic-status.conf
-      # into your config, then uncomment this to reach it at 127.0.0.1:9113/status.
-      # - "127.0.0.1:9113:9113"
     volumes:
       - "${NGINX_CONF_DIR:-./nginx/conf}:/etc/nginx"      # seeded if empty
       - "${NGINX_LOG_DIR:-./nginx/logs}:/var/log/nginx"
       - "${DATA_DIR:-./lightngx}:/var/lib/lightngx"       # keep this volume
-      - "${CERT_DIR:-/etc/ssl/domains}:${CERT_DIR:-/etc/ssl/domains}:ro"
     environment:
       - TZ=${TZ:-UTC}
 
@@ -71,10 +66,6 @@ services:
       - LN_OIDC_JWKS_URL=${LN_OIDC_JWKS_URL:-}
       - LN_OIDC_USERINFO_URL=${LN_OIDC_USERINFO_URL:-}
 
-      # ---- CrowdSec bouncer: a key turns it on; it is shared with the LAPI. ----
-      - CROWDSEC_LAPI_URL=${CROWDSEC_LAPI_URL:-http://crowdsec:8080}
-      - CROWDSEC_LAPI_KEY=${CROWDSEC_BOUNCER_KEY:?generate a shared bouncer key}
-
       # ---- Container internals (image-managed; change only with the mounts) ----
       - LN_LISTEN=${LN_LISTEN:-:9000}
       - LN_SUPERVISE=${LN_SUPERVISE:-true}
@@ -88,56 +79,3 @@ services:
       - LN_SITES_ENABLED_DIR=${LN_SITES_ENABLED_DIR:-}
       - LN_STREAMS_AVAILABLE_DIR=${LN_STREAMS_AVAILABLE_DIR:-}
       - LN_STREAMS_ENABLED_DIR=${LN_STREAMS_ENABLED_DIR:-}
-    depends_on:
-      - crowdsec
-    networks: [proxy]
-
-  crowdsec:
-    image: crowdsecurity/crowdsec:latest
-    container_name: crowdsec
-    restart: unless-stopped
-    depends_on:
-      crowdsec-db:
-        condition: service_healthy
-    environment:
-      - TZ=${TZ:-UTC}
-      - COLLECTIONS=${CROWDSEC_COLLECTIONS:-crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/appsec-virtual-patching}
-      - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY:?generate a shared bouncer key}
-      # DB connection lives in crowdsec/conf/config.yaml.local (the image reads
-      # no DB_* env); these just feed its ${...} expansion.
-      - CROWDSEC_DB_HOST=${CROWDSEC_DB_HOST:-crowdsec-db}
-      - CROWDSEC_DB_PORT=${CROWDSEC_DB_PORT:-5432}
-      - CROWDSEC_DB_USER=${CROWDSEC_DB_USER:-crowdsec}
-      - CROWDSEC_DB_PASSWORD=${CROWDSEC_DB_PASSWORD:?set a database password}
-      - CROWDSEC_DB_NAME=${CROWDSEC_DB_NAME:-crowdsec}
-    volumes:
-      - "${CROWDSEC_CONF_DIR:-./crowdsec/conf}:/etc/crowdsec"
-      - "${CROWDSEC_DATA_DIR:-./crowdsec/data}:/var/lib/crowdsec/data"
-      - "${NGINX_LOG_DIR:-./nginx/logs}:/var/log/nginx:ro"
-    expose:
-      - "8080"   # LAPI, compose network only
-    networks: [proxy]
-
-  crowdsec-db:
-    image: postgres:18-trixie
-    container_name: crowdsec-db
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      - TZ=${TZ:-UTC}
-      - POSTGRES_DB=${CROWDSEC_DB_NAME:-crowdsec}
-      - POSTGRES_USER=${CROWDSEC_DB_USER:-crowdsec}
-      - POSTGRES_PASSWORD=${CROWDSEC_DB_PASSWORD:?set a database password}
-    volumes:
-      - "${CROWDSEC_DB_DIR:-./crowdsec/db}:/var/lib/postgresql"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${CROWDSEC_DB_USER:-crowdsec} -d ${CROWDSEC_DB_NAME:-crowdsec}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks: [proxy]
-
-networks:
-  proxy:
-    driver: bridge
