@@ -21,6 +21,13 @@ const config = {
   onBrokenLinks: "throw",
   markdown: { hooks: { onBrokenMarkdownLinks: "warn" } },
 
+  headTags: [
+    {
+      tagName: "link",
+      attributes: { rel: "apple-touch-icon", sizes: "180x180", href: `${baseUrl}img/apple-touch-icon.png` },
+    },
+  ],
+
   i18n: { defaultLocale: "en", locales: ["en"] },
 
   presets: [
@@ -44,7 +51,12 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      image: "img/screenshot-editor.png",
+      image: "img/social-card.png",
+      metadata: [
+        { property: "og:site_name", content: "Lightngx" },
+        { property: "og:type", content: "website" },
+        { name: "theme-color", content: "#009639" },
+      ],
       colorMode: { respectPrefersColorScheme: true },
       navbar: {
         title: "Lightngx",
