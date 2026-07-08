@@ -35,6 +35,7 @@ type Session struct {
 	Role      string    `json:"r"`
 	Method    string    `json:"m"` // "local" or "oidc"
 	Level     string    `json:"l"` // LevelFull / LevelMFA / LevelEnroll
+	Gen       int64     `json:"g"` // local session generation (revocation)
 	IssuedAt  time.Time `json:"iat"`
 	ExpiresAt time.Time `json:"exp"`
 }
@@ -76,6 +77,26 @@ func LoadOrCreateSecret(configured, dataDir string) ([]byte, error) {
 	}
 	if err := os.WriteFile(path, key, 0o600); err != nil {
 		return nil, fmt.Errorf("persist session key: %w", err)
+	}
+	return key, nil
+}
+
+// LoadOrCreateDataKey returns a persistent 32-byte at-rest encryption key,
+// independent of the session secret so the latter can be rotated freely.
+func LoadOrCreateDataKey(dataDir string) ([]byte, error) {
+	path := filepath.Join(dataDir, "data.key")
+	if b, err := os.ReadFile(path); err == nil && len(b) == 32 {
+		return b, nil
+	}
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(dataDir, 0o700); err != nil {
+		return nil, fmt.Errorf("data dir: %w", err)
+	}
+	if err := os.WriteFile(path, key, 0o600); err != nil {
+		return nil, fmt.Errorf("persist data key: %w", err)
 	}
 	return key, nil
 }

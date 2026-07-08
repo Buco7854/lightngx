@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Buco7854/lightngx/internal/accounts"
@@ -44,7 +45,11 @@ type Server struct {
 	// rollback, so concurrent saves cannot fail on each other's in-flight
 	// changes or roll back content another request just committed.
 	mutate sync.Mutex
+
+	logStreams atomic.Int32 // active SSE log streams (capped)
 }
+
+const maxLogStreams = 32
 
 func contentHash(b []byte) string {
 	sum := sha256.Sum256(b)
@@ -182,7 +187,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any, maxBytes int64) boo
 // issueSession issues a session cookie for a local user at the given level.
 func (s *Server) issueSession(w http.ResponseWriter, u store.User, method, level string) error {
 	return s.sessions.Issue(w, auth.Session{
-		UserID: u.ID, User: u.Username, Role: u.Role, Method: method, Level: level,
+		UserID: u.ID, User: u.Username, Role: u.Role, Method: method, Level: level, Gen: u.Generation,
 	})
 }
 
@@ -241,11 +246,6 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	ip := s.clientIP(r)
-	if !s.limiter.Allow(ip) {
-		s.audit(r, "login.ratelimited")
-		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
-		return
-	}
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -253,14 +253,24 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req, 4096) {
 		return
 	}
+	// Throttle per IP and per account, so a shared proxy IP can't lock
+	// everyone out and a distributed guess at one account is still bounded.
+	userKey := "user:" + strings.ToLower(req.Username)
+	if !s.limiter.Allow(ip) || !s.limiter.Allow(userKey) {
+		s.audit(r, "login.ratelimited", "username", req.Username)
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
+		return
+	}
 	dec, err := s.accounts.Authenticate(req.Username, req.Password)
 	if err != nil {
 		s.limiter.Fail(ip)
+		s.limiter.Fail(userKey)
 		s.audit(r, "login.failed", "username", req.Username)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 		return
 	}
 	s.limiter.Reset(ip)
+	s.limiter.Reset(userKey)
 	if err := s.issueSession(w, dec.User, "local", dec.Level); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
 		return
@@ -270,6 +280,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if sess, err := s.sessions.FromRequest(r); err == nil && sess.Method == "local" {
+		_ = s.accounts.Store().BumpGeneration(sess.UserID)
+	}
 	s.sessions.Clear(w)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -278,7 +291,7 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	username, isAdmin, err := s.oidc.Callback(w, r)
 	if err != nil {
 		s.audit(r, "oidc.failed", "error", err.Error())
-		http.Error(w, "OIDC login failed: "+err.Error(), http.StatusForbidden)
+		http.Error(w, "OIDC login failed", http.StatusForbidden)
 		return
 	}
 	// OIDC role comes from the admin-mapping env; OIDC bypasses local MFA.
@@ -545,6 +558,13 @@ func (s *Server) handleLogRead(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
+	if s.logStreams.Add(1) > maxLogStreams {
+		s.logStreams.Add(-1)
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "too many active log streams"})
+		return
+	}
+	defer s.logStreams.Add(-1)
+
 	q := r.URL.Query()
 	path := q.Get("path")
 	from := parseInt64(q.Get("from"), -1)

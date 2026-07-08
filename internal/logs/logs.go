@@ -78,7 +78,7 @@ func (s *Store) List() []File {
 				continue
 			}
 			full := filepath.Join(p, e.Name())
-			if info, err := os.Stat(full); err == nil {
+			if info, err := os.Lstat(full); err == nil {
 				add(full, info)
 			}
 		}
@@ -104,9 +104,9 @@ func (s *Store) allowed(path string) (string, error) {
 		if !ok {
 			continue
 		}
-		// Only plain files: never open devices, fifos or the
-		// /dev/stdout symlinks the nginx Docker image ships.
-		if info, err := os.Stat(abs); err != nil || !info.Mode().IsRegular() {
+		// Lstat, not Stat: reject symlinks too, so a log-named symlink
+		// cannot point the reader at an arbitrary file outside the dir.
+		if info, err := os.Lstat(abs); err != nil || !info.Mode().IsRegular() {
 			return "", ErrNotAllowed
 		}
 		return abs, nil

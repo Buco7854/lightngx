@@ -7,6 +7,7 @@ package webauthnx
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -170,7 +171,11 @@ func (m *Manager) FinishLogin(r *http.Request, st *store.Store, u store.User, sd
 	if err != nil {
 		return err
 	}
-	// Persist any counter/backup-state change to detect cloned authenticators.
+	// go-webauthn flags a sign-counter regression rather than erroring; a
+	// clone and the original both authenticate unless we reject it here.
+	if cred.Authenticator.CloneWarning {
+		return errors.New("authenticator clone detected")
+	}
 	data, err := json.Marshal(cred)
 	if err != nil {
 		return err

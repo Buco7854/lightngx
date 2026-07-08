@@ -102,11 +102,15 @@ func TestTOTPRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatal("hotp failed")
 	}
-	if !VerifyTOTP(secret, code) {
+	if _, ok := VerifyTOTP(secret, code, 0); !ok {
 		t.Fatal("valid code rejected")
 	}
-	if VerifyTOTP(secret, "000000") && code != "000000" {
+	if _, ok := VerifyTOTP(secret, "000000", 0); ok && code != "000000" {
 		t.Fatal("wrong code accepted")
+	}
+	matched, _ := VerifyTOTP(secret, code, 0)
+	if _, ok := VerifyTOTP(secret, code, matched); ok {
+		t.Fatal("replay of consumed code accepted")
 	}
 	if len(code) != 6 {
 		t.Fatalf("code len = %d", len(code))

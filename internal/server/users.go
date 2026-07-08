@@ -116,14 +116,10 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "role must be admin or user"})
 			return
 		}
-		// Never let the last admin be demoted.
-		if target.Role == "admin" && *req.Role != "admin" {
-			if n, _ := s.accounts.Store().CountAdmins(); n <= 1 {
-				writeJSON(w, http.StatusConflict, map[string]string{"error": "cannot demote the last admin"})
-				return
-			}
-		}
-		if err := s.accounts.Store().SetRole(id, *req.Role); err != nil {
+		if err := s.accounts.Store().SetRole(id, *req.Role); errors.Is(err, store.ErrLastAdmin) {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "cannot demote the last admin"})
+			return
+		} else if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 			return
 		}
@@ -166,13 +162,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "cannot delete your own account"})
 		return
 	}
-	if target.Role == "admin" {
-		if n, _ := s.accounts.Store().CountAdmins(); n <= 1 {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "cannot delete the last admin"})
-			return
-		}
-	}
-	if err := s.accounts.Store().DeleteUser(id); err != nil {
+	if err := s.accounts.Store().DeleteUser(id); errors.Is(err, store.ErrLastAdmin) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "cannot delete the last admin"})
+		return
+	} else if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
@@ -194,6 +187,7 @@ func (s *Server) handleResetUserMFA(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
+	_ = s.accounts.Store().BumpGeneration(id)
 	sess, _ := sessionFrom(r.Context())
 	s.audit(r, "user.mfa_reset", "by", sess.User, "username", target.Username)
 	u, _ := s.accounts.Store().GetUser(id)

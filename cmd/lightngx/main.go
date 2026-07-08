@@ -125,6 +125,18 @@ func run() error {
 	}
 	sessions := auth.NewSessions(secret, cfg.SessionTTL, cfg.SecureCookies)
 
+	encKey, err := auth.LoadOrCreateDataKey(cfg.DataDir)
+	if err != nil {
+		return err
+	}
+
+	if len(cfg.TrustedProxies) == 0 {
+		slog.Warn("LN_TRUSTED_PROXIES is empty: behind a reverse proxy, rate limiting and audit logs key on the proxy address; set it to your proxy's CIDR")
+	}
+	if cfg.WebAuthnRPID == "" {
+		slog.Warn("LN_WEBAUTHN_RPID/ORIGINS unset: WebAuthn binds to the request Host; set them for a stable identity behind a proxy")
+	}
+
 	nginx := nginxctl.New(cfg.NginxBin, cfg.NginxConf, cfg.NginxPidFile, cfg.Supervise, cfg.Logrotate)
 	if cfg.Supervise {
 		if err := nginx.StartSupervised(); err != nil {
@@ -140,7 +152,7 @@ func run() error {
 	}
 	logStore := logs.New(cfg.LogPaths)
 
-	userStore, err := store.Open(cfg.DBPath, secret)
+	userStore, err := store.Open(cfg.DBPath, encKey)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

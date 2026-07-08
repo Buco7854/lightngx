@@ -27,10 +27,10 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// csrfProtect rejects state-changing cross-origin requests. Browsers send
-// Sec-Fetch-Site and/or Origin on all such requests; non-browser clients
-// with a valid session cookie are not a CSRF vector but still pass by
-// omitting both headers is not possible from a browser form/fetch.
+// csrfProtect rejects state-changing cross-origin requests. Browsers always
+// send Sec-Fetch-Site and/or Origin on such requests; a cookie-authenticated
+// request carrying neither is rejected. Token-authenticated (no cookie)
+// clients such as scripts are not a CSRF vector and may omit both.
 func csrfProtect(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -38,14 +38,23 @@ func csrfProtect(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
-			http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+		reject := func() { http.Error(w, "cross-origin request rejected", http.StatusForbidden) }
+		site := r.Header.Get("Sec-Fetch-Site")
+		origin := r.Header.Get("Origin")
+		if site != "" && site != "same-origin" && site != "none" {
+			reject()
 			return
 		}
-		if origin := r.Header.Get("Origin"); origin != "" {
+		if origin != "" {
 			u, err := url.Parse(origin)
 			if err != nil || !strings.EqualFold(u.Host, r.Host) {
-				http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+				reject()
+				return
+			}
+		}
+		if site == "" && origin == "" {
+			if _, err := r.Cookie(auth.SessionCookie); err == nil {
+				reject()
 				return
 			}
 		}
@@ -99,13 +108,30 @@ func (s *Server) clientIP(r *http.Request) string {
 	return host
 }
 
-// requireStep admits any valid session (partial or full) and attaches it
-// to the context. Used by the MFA/enrolment endpoints, which a partial
-// session must reach to complete itself.
+// liveSession returns the request's session only if it is still valid. A
+// local session is rejected once its user is deleted or its generation is
+// bumped (role change, password/MFA reset, logout), so revocation is
+// immediate rather than waiting out the token TTL.
+func (s *Server) liveSession(r *http.Request) (*auth.Session, bool) {
+	sess, err := s.sessions.FromRequest(r)
+	if err != nil {
+		return nil, false
+	}
+	if sess.Method == "local" {
+		gen, err := s.accounts.Store().Generation(sess.UserID)
+		if err != nil || gen != sess.Gen {
+			return nil, false
+		}
+	}
+	return sess, true
+}
+
+// requireStep admits any valid session (partial or full). Used by the MFA
+// and enrolment endpoints a partial session must reach to complete itself.
 func (s *Server) requireStep(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sess, err := s.sessions.FromRequest(r)
-		if err != nil {
+		sess, ok := s.liveSession(r)
+		if !ok {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}
@@ -114,12 +140,11 @@ func (s *Server) requireStep(next http.Handler) http.Handler {
 	})
 }
 
-// requireAuth admits only fully-authenticated sessions. A partial session
-// (owing MFA verification or enrolment) is rejected with 401.
+// requireAuth admits only fully-authenticated, still-valid sessions.
 func (s *Server) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sess, err := s.sessions.FromRequest(r)
-		if err != nil || sess.Level != auth.LevelFull {
+		sess, ok := s.liveSession(r)
+		if !ok || sess.Level != auth.LevelFull {
 			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
 			return
 		}

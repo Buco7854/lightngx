@@ -42,6 +42,18 @@ func TestUserCRUD(t *testing.T) {
 		t.Fatalf("PasswordHash = %d %q %v", id, hash, err)
 	}
 
+	// The last admin cannot be demoted or deleted.
+	if err := s.SetRole(u.ID, "user"); err != ErrLastAdmin {
+		t.Fatalf("demote last admin: want ErrLastAdmin, got %v", err)
+	}
+	if err := s.DeleteUser(u.ID); err != ErrLastAdmin {
+		t.Fatalf("delete last admin: want ErrLastAdmin, got %v", err)
+	}
+
+	// With a second admin, demotion is allowed.
+	if _, err := s.CreateUser("carol", "h", "admin"); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.SetRole(u.ID, "user"); err != nil {
 		t.Fatal(err)
 	}

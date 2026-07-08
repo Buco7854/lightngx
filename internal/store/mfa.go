@@ -4,18 +4,14 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"errors"
 	"time"
 )
 
-// aead builds an AES-GCM cipher from a stable key derived from the app
-// secret, used to encrypt TOTP secrets at rest.
 func (s *Store) aead() (cipher.AEAD, error) {
-	key := sha256.Sum256(append([]byte("lightngx-totp-v1"), s.secret...))
-	block, err := aes.NewCipher(key[:])
+	block, err := aes.NewCipher(s.encKey)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +79,21 @@ func (s *Store) TOTPSecret(id int64) (secret string, confirmed bool, err error) 
 	}
 	secret, err = s.decrypt(enc)
 	return secret, conf == 1, err
+}
+
+// TOTPLastUsed returns the last TOTP timestep counter consumed for a user.
+func (s *Store) TOTPLastUsed(id int64) (int64, error) {
+	var c int64
+	err := s.db.QueryRow(`SELECT totp_last_used FROM users WHERE id = ?`, id).Scan(&c)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return c, err
+}
+
+// SetTOTPLastUsed advances the last-consumed counter, blocking code replay.
+func (s *Store) SetTOTPLastUsed(id, counter int64) error {
+	return s.touch(`UPDATE users SET totp_last_used = ? WHERE id = ? AND totp_last_used < ?`, counter, id, counter)
 }
 
 // ClearTOTP removes any TOTP enrollment for the user.

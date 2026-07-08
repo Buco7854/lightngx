@@ -226,11 +226,40 @@ func (d *Dir) Write(rel string, content []byte) (restore func() error, err error
 
 	restore = func() error {
 		if existed {
-			return os.WriteFile(abs, old, mode)
+			return atomicWrite(abs, old, mode)
 		}
 		return os.Remove(abs)
 	}
 	return restore, nil
+}
+
+// atomicWrite replaces abs via a same-dir temp file + rename, so a crash
+// mid-write leaves either the old or the new content, never a truncated file.
+func atomicWrite(abs string, content []byte, mode os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(abs), ".ln-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	if _, err := tmp.Write(content); err != nil {
+		tmp.Close()
+		os.Remove(name)
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		tmp.Close()
+		os.Remove(name)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(name)
+		return err
+	}
+	if err := os.Rename(name, abs); err != nil {
+		os.Remove(name)
+		return err
+	}
+	return nil
 }
 
 // Mkdir creates a directory (and any missing parents) inside the root.

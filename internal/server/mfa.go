@@ -54,12 +54,15 @@ func (s *Server) handleVerifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	secret, confirmed, err := s.accounts.Store().TOTPSecret(sess.UserID)
-	if err != nil || !confirmed || !auth.VerifyTOTP(secret, req.Code) {
+	lastUsed, _ := s.accounts.Store().TOTPLastUsed(sess.UserID)
+	matched, ok := auth.VerifyTOTP(secret, req.Code, lastUsed)
+	if err != nil || !confirmed || !ok {
 		s.limiter.Fail(ip)
 		s.audit(r, "mfa.totp.verify_failed", "username", sess.User)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid code"})
 		return
 	}
+	_ = s.accounts.Store().SetTOTPLastUsed(sess.UserID, matched)
 	s.limiter.Reset(ip)
 	if err := s.upgradeAfterMFA(w, sess); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
@@ -218,7 +221,8 @@ func (s *Server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "already enrolled"})
 		return
 	}
-	if !auth.VerifyTOTP(secret, req.Code) {
+	matched, ok := auth.VerifyTOTP(secret, req.Code, 0)
+	if !ok {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid code"})
 		return
 	}
@@ -226,6 +230,7 @@ func (s *Server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
+	_ = s.accounts.Store().SetTOTPLastUsed(sess.UserID, matched)
 	s.audit(r, "mfa.totp.enrolled", "username", sess.User)
 	s.finishEnrol(w, sess)
 }

@@ -21,6 +21,10 @@ const (
 
 var validRoles = []string{"admin", "user"}
 
+// dummyHash is a real cost-12 bcrypt hash used to spend equal time on an
+// unknown username, so login timing does not reveal which accounts exist.
+const dummyHash = "$2a$12$JDaudQO61B.6ZHNW5XotIOLqYKCuPy9.hde9x4ABiPigjVgdGmOJC"
+
 func ValidRole(r string) bool { return slices.Contains(validRoles, r) }
 
 type Service struct {
@@ -63,16 +67,8 @@ func (s *Service) NeedsBootstrap() (bool, error) {
 	return n == 0, err
 }
 
-// Bootstrap creates the first admin account. It refuses once any admin
-// exists, closing the first-run window.
+// Bootstrap creates the first admin account, refusing once any admin exists.
 func (s *Service) Bootstrap(username, password string) (store.User, error) {
-	n, err := s.store.CountAdmins()
-	if err != nil {
-		return store.User{}, err
-	}
-	if n > 0 {
-		return store.User{}, errors.New("an admin already exists")
-	}
 	if err := validateUsername(username); err != nil {
 		return store.User{}, err
 	}
@@ -80,7 +76,7 @@ func (s *Service) Bootstrap(username, password string) (store.User, error) {
 	if err != nil {
 		return store.User{}, err
 	}
-	return s.store.CreateUser(username, hash, "admin")
+	return s.store.CreateFirstAdmin(username, hash)
 }
 
 // MFAPolicy is the current second-factor requirement.
@@ -148,6 +144,7 @@ type LoginDecision struct {
 func (s *Service) Authenticate(username, password string) (LoginDecision, error) {
 	id, hash, err := s.store.PasswordHash(username)
 	if err != nil {
+		auth.CheckPassword(dummyHash, password) // equalize timing vs a real user
 		return LoginDecision{}, ErrInvalidCredentials
 	}
 	if !auth.CheckPassword(hash, password) {

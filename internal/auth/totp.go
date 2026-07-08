@@ -69,21 +69,27 @@ func padBase32(s string) string {
 }
 
 // VerifyTOTP checks a code against the secret, allowing ±totpSkew windows.
-// Comparison is constant-time.
-func VerifyTOTP(secret, code string) bool {
+// Comparison is constant-time. It returns the matched timestep counter, and
+// only accepts a counter strictly greater than `after` so a code cannot be
+// replayed once consumed (pass the last-used counter; 0 to accept any).
+func VerifyTOTP(secret, code string, after int64) (matched int64, ok bool) {
 	code = strings.TrimSpace(code)
 	if len(code) != totpDigits {
-		return false
+		return 0, false
 	}
-	counter := uint64(time.Now().Unix() / totpPeriod)
+	counter := time.Now().Unix() / totpPeriod
 	for i := -totpSkew; i <= totpSkew; i++ {
-		want, ok := hotp(secret, counter+uint64(int64(i)))
-		if !ok {
-			return false
+		c := counter + int64(i)
+		if c <= after {
+			continue
+		}
+		want, valid := hotp(secret, uint64(c))
+		if !valid {
+			return 0, false
 		}
 		if subtle.ConstantTimeCompare([]byte(want), []byte(code)) == 1 {
-			return true
+			return c, true
 		}
 	}
-	return false
+	return 0, false
 }

@@ -21,7 +21,7 @@ var (
 
 type Store struct {
 	db     *sql.DB
-	secret []byte
+	encKey []byte
 }
 
 // User is the non-sensitive view of an account.
@@ -31,6 +31,7 @@ type User struct {
 	Role          string    `json:"role"`
 	TOTPEnrolled  bool      `json:"totpEnrolled"`
 	WebAuthnCount int       `json:"webauthnCount"`
+	Generation    int64     `json:"-"` // bumped to invalidate outstanding sessions
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
@@ -38,9 +39,11 @@ type User struct {
 // MFAEnrolled reports whether the user has any confirmed second factor.
 func (u User) MFAEnrolled() bool { return u.TOTPEnrolled || u.WebAuthnCount > 0 }
 
-// Open opens (creating and migrating if needed) the SQLite database. The
-// secret must be stable across restarts; it keys TOTP-secret encryption.
-func Open(path string, secret []byte) (*Store, error) {
+// Open opens (creating and migrating if needed) the SQLite database. encKey
+// keys at-rest encryption and must be stable across restarts; it is
+// independent of the session secret so that can be rotated without orphaning
+// TOTP secrets.
+func Open(path string, encKey []byte) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
 	}
@@ -49,10 +52,16 @@ func Open(path string, secret []byte) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1) // SQLite writer serialization; simplest correct choice
-	s := &Store{db: db, secret: secret}
+	s := &Store{db: db, encKey: encKey}
 	if err := s.migrate(); err != nil {
 		db.Close()
 		return nil, err
+	}
+	// Restrict the DB (hashes, encrypted secrets) rather than trust the umask.
+	for _, p := range []string{path, path + "-wal", path + "-shm"} {
+		if _, err := os.Stat(p); err == nil {
+			_ = os.Chmod(p, 0o600)
+		}
 	}
 	return s, nil
 }
@@ -68,6 +77,8 @@ CREATE TABLE IF NOT EXISTS users (
     role          TEXT NOT NULL DEFAULT 'user',
     totp_secret   TEXT NOT NULL DEFAULT '',
     totp_confirmed INTEGER NOT NULL DEFAULT 0,
+    totp_last_used INTEGER NOT NULL DEFAULT 0,
+    session_gen   INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
 );
@@ -93,7 +104,18 @@ CREATE TABLE IF NOT EXISTS api_keys (
     last_used_at TEXT
 );
 `)
-	return err
+	if err != nil {
+		return err
+	}
+	for _, col := range []string{
+		"ALTER TABLE users ADD COLUMN totp_last_used INTEGER NOT NULL DEFAULT 0",
+		"ALTER TABLE users ADD COLUMN session_gen INTEGER NOT NULL DEFAULT 0",
+	} {
+		if _, err := s.db.Exec(col); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+			return err
+		}
+	}
+	return nil
 }
 
 func now() string { return time.Now().UTC().Format(time.RFC3339Nano) }
@@ -109,7 +131,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var totpSecret string
 	var totpConfirmed int
 	if err := row.Scan(&u.ID, &u.Username, &u.Role, &totpSecret, &totpConfirmed,
-		&created, &updated, &u.WebAuthnCount); err != nil {
+		&u.Generation, &created, &updated, &u.WebAuthnCount); err != nil {
 		return u, err
 	}
 	u.TOTPEnrolled = totpConfirmed == 1 && totpSecret != ""
@@ -121,7 +143,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 // userCols folds the WebAuthn credential count into a correlated subquery
 // so a single row query is self-contained — no nested query while a rows
 // cursor is open (which would deadlock the single-connection pool).
-const userCols = "id, username, role, totp_secret, totp_confirmed, created_at, updated_at, " +
+const userCols = "id, username, role, totp_secret, totp_confirmed, session_gen, created_at, updated_at, " +
 	"(SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = users.id)"
 
 // CountAdmins returns the number of admin accounts.
@@ -149,6 +171,28 @@ func (s *Store) CreateUser(username, passwordHash, role string) (User, error) {
 			return User{}, ErrExists
 		}
 		return User{}, err
+	}
+	id, _ := res.LastInsertId()
+	return s.GetUser(id)
+}
+
+var ErrNotFirstAdmin = errors.New("an admin already exists")
+
+// CreateFirstAdmin inserts the first admin only if none exists, atomically.
+func (s *Store) CreateFirstAdmin(username, passwordHash string) (User, error) {
+	t := now()
+	res, err := s.db.Exec(
+		`INSERT INTO users (username, password_hash, role, created_at, updated_at)
+		 SELECT ?, ?, 'admin', ?, ? WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = 'admin')`,
+		username, passwordHash, t, t)
+	if err != nil {
+		if isUnique(err) {
+			return User{}, ErrExists
+		}
+		return User{}, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return User{}, ErrNotFirstAdmin
 	}
 	id, _ := res.LastInsertId()
 	return s.GetUser(id)
@@ -204,23 +248,65 @@ func (s *Store) ListUsers() ([]User, error) {
 	return out, rows.Err()
 }
 
+var ErrLastAdmin = errors.New("cannot remove the last admin")
+
 func (s *Store) SetPassword(id int64, hash string) error {
-	return s.touch(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`, hash, now(), id)
+	return s.touch(`UPDATE users SET password_hash = ?, session_gen = session_gen + 1, updated_at = ? WHERE id = ?`, hash, now(), id)
 }
 
+// SetRole changes a role, refusing to demote the last admin atomically.
 func (s *Store) SetRole(id int64, role string) error {
-	return s.touch(`UPDATE users SET role = ?, updated_at = ? WHERE id = ?`, role, now(), id)
-}
-
-func (s *Store) DeleteUser(id int64) error {
-	res, err := s.db.Exec(`DELETE FROM users WHERE id = ?`, id)
+	res, err := s.db.Exec(
+		`UPDATE users SET role = ?, session_gen = session_gen + 1, updated_at = ?
+		 WHERE id = ? AND (role = ? OR role != 'admin'
+		   OR (SELECT COUNT(*) FROM users WHERE role = 'admin') > 1)`,
+		role, now(), id, role)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
+		return s.roleChangeError(id)
 	}
 	return nil
+}
+
+// DeleteUser removes an account, refusing to delete the last admin atomically.
+func (s *Store) DeleteUser(id int64) error {
+	res, err := s.db.Exec(
+		`DELETE FROM users WHERE id = ?
+		 AND (role != 'admin' OR (SELECT COUNT(*) FROM users WHERE role = 'admin') > 1)`,
+		id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return s.roleChangeError(id)
+	}
+	return nil
+}
+
+// roleChangeError tells "no such user" apart from the last-admin guard after
+// a guarded write affected zero rows.
+func (s *Store) roleChangeError(id int64) error {
+	if _, err := s.GetUser(id); errors.Is(err, ErrNotFound) {
+		return ErrNotFound
+	}
+	return ErrLastAdmin
+}
+
+// BumpGeneration invalidates a user's outstanding sessions.
+func (s *Store) BumpGeneration(id int64) error {
+	return s.touch(`UPDATE users SET session_gen = session_gen + 1 WHERE id = ?`, id)
+}
+
+// Generation returns a user's current session generation, or ErrNotFound.
+func (s *Store) Generation(id int64) (int64, error) {
+	var g int64
+	err := s.db.QueryRow(`SELECT session_gen FROM users WHERE id = ?`, id).Scan(&g)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrNotFound
+	}
+	return g, err
 }
 
 func (s *Store) touch(query string, args ...any) error {
@@ -235,7 +321,11 @@ func (s *Store) touch(query string, args ...any) error {
 }
 
 func isUnique(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE")
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "UNIQUE") || strings.Contains(msg, "2067") // SQLITE_CONSTRAINT_UNIQUE
 }
 
 func (s *Store) settingGet(key string) (string, bool, error) {
