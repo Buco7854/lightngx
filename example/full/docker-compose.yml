@@ -18,8 +18,9 @@ services:
       - "80:80"
       - "443:443"
       - "${UI_BIND:-127.0.0.1}:9000:9000"   # management UI (localhost only by default)
-      # LAN access via the seeded conf.d/lightngx.conf proxy (:9001, HTTP,
-      # private IPs only). Uncomment to publish it, and set LN_SECURE_COOKIES=false.
+      # Reach it from the network: set UI_BIND=0.0.0.0 to expose 9000, or copy
+      # a proxy vhost from /usr/share/lightngx/examples/ into conf.d. For the
+      # HTTP LAN proxy (ui-proxy.conf, :9001) uncomment:
       # - "9001:9001"
       # Optional VTS traffic-status page. Copy conf.d/20-vhost-traffic-status.conf
       # into your config, then uncomment this to reach it at 127.0.0.1:9113/status.

@@ -211,8 +211,9 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends ca-certificates logrotate; \
     rm -rf /var/lib/apt/lists/*
 
-# UI reverse-proxy config, seeded into conf.d on demand by the entrypoint.
-COPY docker/ui-proxy.conf /usr/share/lightngx/conf/lightngx.conf
+# Example UI reverse-proxy vhosts to copy into conf.d.
+COPY docker/ui-proxy.conf     /usr/share/lightngx/examples/ui-proxy.conf
+COPY docker/ui-proxy-tls.conf /usr/share/lightngx/examples/ui-proxy-tls.conf
 COPY docker/logrotate-nginx.conf /etc/logrotate.d/nginx
 
 # Debian-convention vhost layout so the sites/maintenance features work

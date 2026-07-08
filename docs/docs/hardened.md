@@ -219,11 +219,10 @@ and the certificate paths. The line that switches the gate on is
 
 <CodeBlock language="nginx" title="nginx/conf/conf.d/10-lightngx-gated.conf">{gatedVhost}</CodeBlock>
 
-This is the internet-facing vhost. Lightngx also seeds its own
-`conf.d/lightngx.conf` on first start: a private-network-only proxy to the UI on
-`:9001`, over plain HTTP, for local access. It coexists with this gated vhost
-(different port, private IPs only); leave it for LAN use, or delete it if you
-want the gate to be the only way in.
+This is the internet-facing vhost. For a LAN shortcut past the gate, copy
+`/usr/share/lightngx/examples/ui-proxy.conf` into `conf.d`: a private-network
+proxy to the UI on `:9001`, over plain HTTP. It coexists with this gated vhost
+on a different port.
 
 ### 8. Restart to apply
 

@@ -18,9 +18,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      # LAN access to the UI via the seeded conf.d/lightngx.conf proxy (:9001,
-      # HTTP, private IPs only), bypassing the gate for trusted networks.
-      # Uncomment to publish it, and set LN_SECURE_COOKIES=false.
+      # The gated vhost (10-lightngx-gated.conf) is the way in. For a LAN
+      # shortcut past the gate, copy examples/ui-proxy.conf into conf.d
+      # (:9001), set LN_SECURE_COOKIES=false, and uncomment:
       # - "9001:9001"
       # Optional VTS traffic-status page. Copy conf.d/20-vhost-traffic-status.conf
       # into your config, then uncomment this to reach it at 127.0.0.1:9113/status.

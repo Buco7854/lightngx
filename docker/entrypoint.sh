@@ -10,13 +10,26 @@ if [ -z "$(ls -A /etc/nginx 2>/dev/null)" ]; then
     cp -a /usr/local/etc/nginx/. /etc/nginx/
 fi
 
-# Seed the UI reverse-proxy config once if absent (works for an existing
-# config too); never clobber a copy you have edited.
-if [ ! -e /etc/nginx/conf.d/lightngx.conf ] \
-   && [ -f /usr/share/lightngx/conf/lightngx.conf ]; then
-    mkdir -p /etc/nginx/conf.d
-    cp /usr/share/lightngx/conf/lightngx.conf /etc/nginx/conf.d/lightngx.conf
-    echo "[lightngx] seeded conf.d/lightngx.conf"
+# The UI listens on 127.0.0.1:9000, unreachable from the network on its own.
+# Warn until something forwards to it.
+if ! grep -RqsF ':9000' \
+        /etc/nginx/conf.d /etc/nginx/sites-available /etc/nginx/streams-available 2>/dev/null; then
+    cat >&2 <<'EOF'
+
+============================================================================
+[lightngx] The UI is not reachable from the network yet. It listens on
+127.0.0.1:9000 inside the container. Do ONE of:
+
+  1. Expose 9000 directly: set UI_BIND=0.0.0.0 (over plain HTTP also set
+     LN_SECURE_COOKIES=false, or the login cookie never sticks).
+  2. Copy an example proxy vhost into conf.d and reload:
+       /usr/share/lightngx/examples/ui-proxy.conf      HTTP, LAN only, :9001
+       /usr/share/lightngx/examples/ui-proxy-tls.conf  HTTPS
+
+Docs: https://buco7854.github.io/lightngx/getting-started
+============================================================================
+
+EOF
 fi
 
 # Own the whole nginx config as the worker user, so the unprivileged workers can

@@ -1,6 +1,8 @@
 import CodeBlock from "@theme/CodeBlock";
 import lightCompose from "!!raw-loader!@site/../example/light/docker-compose.yml";
 import lightEnv from "!!raw-loader!@site/../example/light/.env.example";
+import uiProxy from "!!raw-loader!@site/../docker/ui-proxy.conf";
+import uiProxyTls from "!!raw-loader!@site/../docker/ui-proxy-tls.conf";
 
 # Getting started
 
@@ -41,17 +43,24 @@ lives, and running behind a proxy.
 
 ## Reaching the UI from another machine
 
-Port 9000 is bound to `127.0.0.1` on purpose, so nothing on your network hits
-the UI directly. For local access Lightngx seeds `conf.d/lightngx.conf` on the
-first start: a reverse proxy on `:9001` that only answers private-network
-addresses. Publish that port (uncomment `- "9001:9001"` in the compose) and
-browse `http://<host>:9001` from your LAN. It runs over plain HTTP, so set
-`LN_SECURE_COOKIES=false` or the login cookie (which is `Secure`-flagged) never
-sticks and you loop on the login page.
+Port 9000 is bound to `127.0.0.1`, so nothing on your network hits the UI
+directly. To reach it, do one of:
 
-For anything reachable from outside your LAN, do not expose 9000 or 9001; put a
-TLS front proxy in front (below), and for a public deployment add an
-[auth gate](./hardened.md).
+- **Expose 9000 directly.** Set `UI_BIND=0.0.0.0` in the compose. Over plain
+  HTTP also set `LN_SECURE_COOKIES=false`, or the `Secure`-flagged login cookie
+  never sticks and you loop on the login page.
+- **Copy a proxy vhost into `conf.d`.** Two examples ship in the image at
+  `/usr/share/lightngx/examples/`. The HTTP one answers private-network
+  addresses only on `:9001`; publish that port (uncomment `- "9001:9001"`) and
+  browse `http://<host>:9001` from your LAN:
+
+<CodeBlock language="nginx" title="conf.d/lightngx.conf (HTTP, LAN only)">{uiProxy}</CodeBlock>
+
+The HTTPS one terminates TLS, so it keeps `LN_SECURE_COOKIES=true`:
+
+<CodeBlock language="nginx" title="conf.d/lightngx.conf (HTTPS)">{uiProxyTls}</CodeBlock>
+
+For a public deployment, put an [auth gate](./hardened.md) in front.
 
 ## Light or full image
 
