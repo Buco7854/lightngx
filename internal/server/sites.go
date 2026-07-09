@@ -136,7 +136,7 @@ func (s *Server) handleVhostAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "vhost."+req.Action, "names", names)
-	writeJSON(w, http.StatusOK, map[string]any{"status": "applied", "output": out})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "applied", "output": out, "reloaded": true})
 }
 
 // handleVhostRename renames a vhost, `nginx -t` guarded, then reloads.
@@ -177,7 +177,7 @@ func (s *Server) handleVhostRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "vhost.renamed", "from", req.Name, "to", req.NewName)
-	writeJSON(w, http.StatusOK, map[string]any{"status": "renamed", "output": out})
+	writeJSON(w, http.StatusOK, map[string]any{"status": "renamed", "output": out, "reloaded": true})
 }
 
 func siteStatusFor(err error) int {

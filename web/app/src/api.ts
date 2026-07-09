@@ -102,6 +102,11 @@ export interface Me {
   policy?: MFAPolicy;
 }
 
+// App-wide, read-only settings the UI needs (GET /api/app-config).
+export interface AppConfig {
+  defaultReloadOnSave: boolean;
+}
+
 export interface MFAPolicy {
   decided: boolean;
   pinned: boolean;
@@ -155,6 +160,7 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
   me: () => request<Me>("/api/me"),
+  appConfig: () => request<AppConfig>("/api/app-config"),
   login: (username: string, password: string) =>
     request<{ user: string; level: Level }>("/api/auth/login", {
       method: "POST",
@@ -244,10 +250,10 @@ export const api = {
     request<{ path: string; content: string; hash: string }>(
       `/api/config/file?path=${encodeURIComponent(path)}`,
     ),
-  writeFile: (path: string, content: string, baseHash?: string) =>
+  writeFile: (path: string, content: string, baseHash?: string, reload?: boolean) =>
     request<ActionResult & { hash?: string }>("/api/config/file", {
       method: "PUT",
-      body: JSON.stringify({ path, content, baseHash }),
+      body: JSON.stringify({ path, content, baseHash, reload }),
     }),
   deleteFile: (path: string) =>
     request<ActionResult>(`/api/config/file?path=${encodeURIComponent(path)}`, {

@@ -29,7 +29,9 @@ container, or drop the binary next to your existing nginx.
 - **Guarded config editor.** A file browser with nginx syntax highlighting
   (CodeMirror 6). Every write, rename, delete and toggle runs `nginx -t` first
   and rolls back if the test fails, showing you the error. You cannot break the
-  running config from the UI.
+  running config from the UI. A split **Save** button applies the configured
+  default and, from its dropdown, lets you save with or without reloading nginx
+  per change.
 
 - **Sites and streams.** Manage the Debian `sites-available` and
   `sites-enabled` layout, plus `streams-*` for the `stream{}` context, from a

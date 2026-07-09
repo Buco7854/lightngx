@@ -1,5 +1,25 @@
-import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref, type RefObject } from "react";
 import { ChevronDownIcon, XIcon } from "./icons";
+
+// useDismiss closes an open popup on outside pointer press or Escape. Shared
+// by Combobox, Dropdown and SplitButton.
+function useDismiss(open: boolean, ref: RefObject<HTMLElement | null>, setOpen: (v: boolean) => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, ref, setOpen]);
+}
 
 // Shared text-input styling: an inset fill + 1px border so fields read as
 // editable against the panel, not flush with it.
@@ -121,6 +141,67 @@ export function Btn({
   return <button className={`${base} ${variants[variant]} ${className}`} {...props} />;
 }
 
+// SplitButton: a primary action button with an attached caret that opens a
+// menu of alternative actions (render MenuItems via children). The whole
+// control disables together.
+export function SplitButton({
+  onClick,
+  disabled = false,
+  loading = false,
+  label,
+  menuAriaLabel,
+  variant = "primary",
+  align = "right",
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  label: ReactNode;
+  menuAriaLabel: string;
+  variant?: Variant;
+  align?: "left" | "right";
+  children: (close: () => void) => ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useDismiss(open, ref, setOpen);
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={`${base} ${variants[variant]} rounded-r-none`}
+      >
+        {loading ? <Spinner /> : label}
+      </button>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={menuAriaLabel}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={`${base} ${variants[variant]} rounded-l-none border-l border-black/20`}
+      >
+        <ChevronDownIcon size={14} aria-hidden />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className={`absolute top-full z-50 mt-1.5 flex w-max min-w-[190px] max-w-[calc(100vw-16px)] flex-col gap-0.5 rounded-lg bg-panel p-1.5 shadow-2xl ring-1 ring-line ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+        >
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Combobox: a Select-like trigger whose dropdown has a search box to
 // filter options. For long option lists (e.g. many log files).
 export function Combobox({
@@ -147,21 +228,7 @@ export function Combobox({
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent | TouchEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("touchstart", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("touchstart", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismiss(open, ref, setOpen);
 
   const selected = options.find((o) => o.value === value);
   const q = query.trim().toLowerCase();
@@ -282,23 +349,7 @@ export function Dropdown({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent | TouchEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("touchstart", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("touchstart", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useDismiss(open, ref, setOpen);
 
   return (
     <div ref={ref} className="relative">

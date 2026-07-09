@@ -20,7 +20,7 @@ needs to take effect.
 | `LN_NGINX_PID` | `/var/run/nginx.pid` | Pidfile, used when not supervising |
 | `LN_SUPERVISE` | `false` (`true` in the image) | Run nginx as a supervised child process |
 | `LN_LOGROTATE` | `true` | Rotate nginx logs on a timer while supervising |
-| `LN_AUTO_RELOAD` | `true` | Reload nginx after a config edit passes `nginx -t`. Set `false` to only validate on save and reload by hand |
+| `LN_DEFAULT_RELOAD_ON_SAVE` | `true` | Default for whether saving a config change reloads nginx (after it passes `nginx -t`). The editor's split **Save** button overrides this per save: its dropdown offers **Save and reload nginx** and **Save without reloading**. Set `false` to make plain Save validate and write without reloading |
 | `LN_LOG_PATHS` | `/var/log/nginx` | Log files or directories, separated by comma or colon |
 | `LN_MAX_EDIT_SIZE` | `2097152` | Largest editable file, in bytes |
 | `LN_DOCKER_LOGS` | `false` | Keep the base image's stdout and stderr log symlinks; this disables the log viewer for those files |

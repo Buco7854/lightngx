@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, setUnauthorizedHandler, type Me } from "./api";
+import { api, setUnauthorizedHandler, type AppConfig, type Me } from "./api";
 import { ConfirmProvider } from "./confirm";
 import { navigate, useLocation } from "./router";
 import { detectLang, I18nContext, translations, useI18n, type Lang } from "./i18n";
@@ -180,6 +180,11 @@ function Shell({
   const setView = useCallback((v: View) => navigate(`/${v}`), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { status, refresh: refreshStatus } = useNginxStatus();
+  const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
+  useEffect(() => {
+    api.appConfig().then(setAppConfig).catch(() => setAppConfig(null));
+  }, []);
+  const defaultReload = appConfig?.defaultReloadOnSave ?? true;
 
   // While the app is mounted, any 401 means the session was revoked or
   // expired: drop to the login screen instead of leaving a broken shell.
@@ -229,9 +234,15 @@ function Shell({
             <NotFound onHome={() => navigate("/config")} />
           ) : (
             <>
-              {view === "config" && <ConfigView onAuthLost={onAuthLost} />}
-              {view === "sites" && <VhostsView kind="sites" onAuthLost={onAuthLost} />}
-              {view === "streams" && <VhostsView kind="streams" onAuthLost={onAuthLost} />}
+              {view === "config" && (
+                <ConfigView onAuthLost={onAuthLost} defaultReload={defaultReload} />
+              )}
+              {view === "sites" && (
+                <VhostsView kind="sites" onAuthLost={onAuthLost} defaultReload={defaultReload} />
+              )}
+              {view === "streams" && (
+                <VhostsView kind="streams" onAuthLost={onAuthLost} defaultReload={defaultReload} />
+              )}
               {view === "logs" && <LogsView onAuthLost={onAuthLost} />}
               {view === "profile" && <Profile me={me} onChanged={reloadMe} onAuthLost={onAuthLost} />}
               {view === "admin" && isAdmin && <AdminView onAuthLost={onAuthLost} />}

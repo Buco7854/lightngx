@@ -121,6 +121,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("POST /api/account/password", s.handleChangePassword)
 	api.HandleFunc("GET /api/account/sessions", s.handleListSessions)
 	api.HandleFunc("DELETE /api/account/sessions/{sid}", s.handleRevokeSession)
+	api.HandleFunc("GET /api/app-config", s.handleAppConfig)
 	api.HandleFunc("GET /api/config/tree", s.handleTree)
 	api.HandleFunc("GET /api/config/file", s.handleReadFile)
 	api.HandleFunc("PUT /api/config/file", s.handleWriteFile)
@@ -347,6 +348,13 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// handleAppConfig returns read-only, app-wide settings the UI needs.
+func (s *Server) handleAppConfig(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"defaultReloadOnSave": s.cfg.DefaultReloadOnSave,
+	})
+}
+
 // ---- config files ----
 
 func (s *Server) handleTree(w http.ResponseWriter, r *http.Request) {
@@ -374,6 +382,8 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 		Path     string `json:"path"`
 		Content  string `json:"content"`
 		BaseHash string `json:"baseHash"`
+		// nil uses LN_AUTO_RELOAD; true/false override it for this save.
+		Reload *bool `json:"reload"`
 	}
 	if !readJSON(w, r, &req, s.cfg.MaxEditSize+64<<10) {
 		return
@@ -418,7 +428,11 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request) {
 	s.audit(r, "config.write", "path", req.Path)
 	resp := map[string]any{
 		"status": "saved", "output": out, "hash": contentHash([]byte(req.Content))}
-	s.applyReload(r, "config.write", resp)
+	reload := s.cfg.DefaultReloadOnSave
+	if req.Reload != nil {
+		reload = *req.Reload
+	}
+	s.applyReload(r, "config.write", resp, reload)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -463,7 +477,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "config.delete", "path", path)
 	resp := map[string]any{"status": "deleted", "output": out}
-	s.applyReload(r, "config.delete", resp)
+	s.applyReload(r, "config.delete", resp, s.cfg.DefaultReloadOnSave)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -497,15 +511,15 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "config.rename", "from", req.From, "to", req.To)
 	resp := map[string]any{"status": "renamed", "output": out}
-	s.applyReload(r, "config.rename", resp)
+	s.applyReload(r, "config.rename", resp, s.cfg.DefaultReloadOnSave)
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// applyReload reloads nginx after a mutation passed nginx -t, when
-// LN_AUTO_RELOAD is on, recording the outcome in resp. The change is already
-// saved and valid, so a reload failure is surfaced but not treated as fatal.
-func (s *Server) applyReload(r *http.Request, action string, resp map[string]any) {
-	if !s.cfg.AutoReload {
+// applyReload reloads nginx (when reload is true) after a mutation passed
+// nginx -t, recording the outcome in resp. The change is already saved and
+// valid, so a reload failure is surfaced but not treated as fatal.
+func (s *Server) applyReload(r *http.Request, action string, resp map[string]any, reload bool) {
+	if !reload {
 		return
 	}
 	if _, err := s.nginx.Reload(r.Context()); err != nil {

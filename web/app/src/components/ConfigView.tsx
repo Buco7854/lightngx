@@ -17,7 +17,9 @@ import { useI18n } from "../i18n";
 import { setQuery, useLocation } from "../router";
 import { useToast } from "../toast";
 import { useFileEditor } from "../useFileEditor";
+import { useReloadToast } from "../useReloadToast";
 import { Btn, editorPaneCls, EmptyState, Spinner } from "../ui";
+import SaveButton from "./SaveButton";
 import CodeEditor from "./CodeEditor";
 import { useOutput } from "./OutputPanel";
 import { useDarkTheme } from "./useDarkTheme";
@@ -121,12 +123,19 @@ function DirNode({
   );
 }
 
-export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
+export default function ConfigView({
+  onAuthLost,
+  defaultReload,
+}: {
+  onAuthLost: () => void;
+  defaultReload: boolean;
+}) {
   const { t } = useI18n();
   const toast = useToast();
   const output = useOutput();
   const ask = useConfirm();
   const askName = usePrompt();
+  const notifyReload = useReloadToast();
   const dark = useDarkTheme();
   const loc = useLocation();
   const cwd = loc.searchParams.get("dir") ?? "";
@@ -185,7 +194,8 @@ export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
     if (!name) return;
     const path = inCwd(name);
     try {
-      await api.writeFile(path, "# new file\n");
+      const res = await api.writeFile(path, "# new file\n");
+      notifyReload(res);
       refresh();
       if (await file.open(path)) setQuery({ file: path });
     } catch (err) {
@@ -215,8 +225,9 @@ export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
     const to = await askName({ title: t.rename, label: t.renamePrompt, initial: e.path, confirmLabel: t.rename });
     if (!to || to.trim() === e.path) return;
     try {
-      await api.renameFile(e.path, to.trim());
+      const res = await api.renameFile(e.path, to.trim());
       toast(t.renamed);
+      notifyReload(res);
       refresh();
     } catch (err) {
       if (err instanceof ApiError && err.status === 422 && err.output) {
@@ -234,8 +245,9 @@ export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
       : { title: t.deleteFile, message: t.confirmDelete(e.path), danger: true };
     if (!(await ask(opts))) return;
     try {
-      await api.deleteFile(e.path);
+      const res = await api.deleteFile(e.path);
       toast(t.deleted);
+      notifyReload(res);
       refresh();
     } catch (err) {
       if (err instanceof ApiError && err.status === 422 && err.output) {
@@ -255,8 +267,9 @@ export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
     // Close first (single discard prompt if dirty), then move and reopen fresh.
     if (!(await file.close())) return;
     try {
-      await api.renameFile(from, to.trim());
+      const res = await api.renameFile(from, to.trim());
       toast(t.renamed);
+      notifyReload(res);
       refresh();
       if (await file.open(to.trim())) setQuery({ file: to.trim() });
     } catch (err) {
@@ -275,8 +288,9 @@ export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
     const p = file.path;
     if (!(await ask({ title: t.deleteFile, message: t.confirmDelete(p), danger: true }))) return;
     try {
-      await api.deleteFile(p);
+      const res = await api.deleteFile(p);
       toast(t.deleted);
+      notifyReload(res);
       // The file is gone — clear the editor without a discard prompt.
       file.reset();
       setQuery({ file: null, dir: p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : null });
@@ -355,9 +369,12 @@ export default function ConfigView({ onAuthLost }: { onAuthLost: () => void }) {
                   />
                 )}
               </span>
-              <Btn variant="primary" onClick={file.save} disabled={!file.dirty || file.saving || file.readOnly}>
-                {file.saving ? <Spinner /> : t.save}
-              </Btn>
+              <SaveButton
+                save={file.save}
+                saving={file.saving}
+                disabled={!file.dirty || file.saving || file.readOnly}
+                defaultReload={defaultReload}
+              />
             </div>
             <div className="flex min-h-0 flex-1 flex-col min-[761px]:flex-row-reverse">
               <div className={editorPaneCls}>

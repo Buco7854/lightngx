@@ -29,8 +29,10 @@ type Config struct {
 	// logrotate or its config are absent.
 	Logrotate bool
 
-	// AutoReload reloads nginx after a config edit passes nginx -t.
-	AutoReload bool
+	// DefaultReloadOnSave is the default for whether a config change reloads
+	// nginx after it passes nginx -t. The editor's Save button can override
+	// it per save.
+	DefaultReloadOnSave bool
 
 	// FixConfigPerms chowns files the UI creates to NginxUser (the nginx
 	// worker user, auto-detected from nginx.conf when NginxUser is empty).
@@ -115,8 +117,8 @@ func Load() (*Config, error) {
 		Supervise:    envBool("LN_SUPERVISE", false),
 		Logrotate:    envBool("LN_LOGROTATE", true),
 
-		AutoReload:     envBool("LN_AUTO_RELOAD", true),
-		FixConfigPerms: envBool("LN_FIX_CONFIG_PERMS", true),
+		DefaultReloadOnSave: envBool("LN_DEFAULT_RELOAD_ON_SAVE", true),
+		FixConfigPerms:      envBool("LN_FIX_CONFIG_PERMS", true),
 		NginxUser:      env("LN_NGINX_USER", ""),
 
 		LogPaths: splitPaths(env("LN_LOG_PATHS", "/var/log/nginx")),

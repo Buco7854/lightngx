@@ -6,7 +6,9 @@ import { useI18n } from "../i18n";
 import { setQuery, useLocation } from "../router";
 import { useToast } from "../toast";
 import { useFileEditor } from "../useFileEditor";
+import { useReloadToast } from "../useReloadToast";
 import { Btn, editorPaneCls, EmptyState, SearchInput, Spinner, StatusDot, Switch } from "../ui";
+import SaveButton from "./SaveButton";
 import CodeEditor from "./CodeEditor";
 import { useOutput } from "./OutputPanel";
 import { useDarkTheme } from "./useDarkTheme";
@@ -54,9 +56,11 @@ function stateColor(s: Site): string {
 export default function VhostsView({
   kind,
   onAuthLost,
+  defaultReload,
 }: {
   kind: VhostKind;
   onAuthLost: () => void;
+  defaultReload: boolean;
 }) {
   const { t } = useI18n();
   const toast = useToast();
@@ -179,6 +183,7 @@ export default function VhostsView({
         }}
         runAction={runAction}
         refresh={refresh}
+        defaultReload={defaultReload}
       />
     );
   }
@@ -448,6 +453,7 @@ function VhostEditor({
   onRenamed,
   runAction,
   refresh,
+  defaultReload,
 }: {
   kind: VhostKind;
   name: string;
@@ -458,12 +464,14 @@ function VhostEditor({
   onRenamed: (n: string) => void;
   runAction: (names: string[], action: SiteAction, opts?: { confirm?: boolean }) => Promise<boolean>;
   refresh: () => void;
+  defaultReload: boolean;
 }) {
   const { t } = useI18n();
   const toast = useToast();
   const output = useOutput();
   const dark = useDarkTheme();
   const askName = usePrompt();
+  const notifyReload = useReloadToast();
   const file = useFileEditor(onAuthLost);
 
   useEffect(() => {
@@ -480,8 +488,9 @@ function VhostEditor({
     if (!newName || newName.trim() === name) return;
     if (file.dirty && !(await file.confirmDiscard())) return;
     try {
-      await api.vhostRename(kind, name, newName.trim());
+      const res = await api.vhostRename(kind, name, newName.trim());
       toast(t.renamed);
+      notifyReload(res);
       onRenamed(newName.trim());
     } catch (err) {
       toast(err instanceof ApiError ? err.message : t.actionFailed, "error");
@@ -562,9 +571,12 @@ function VhostEditor({
             <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-warn" title={t.unsavedChanges} />
           )}
         </span>
-        <Btn variant="primary" onClick={file.save} disabled={!file.dirty || file.saving}>
-          {file.saving ? <Spinner /> : t.save}
-        </Btn>
+        <SaveButton
+          save={file.save}
+          saving={file.saving}
+          disabled={!file.dirty || file.saving}
+          defaultReload={defaultReload}
+        />
       </div>
       <div className="flex min-h-0 flex-1 flex-col min-[761px]:flex-row-reverse">
         {pane}

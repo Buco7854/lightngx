@@ -3,6 +3,7 @@ import { api, ApiError } from "./api";
 import { useConfirm } from "./confirm";
 import { useI18n } from "./i18n";
 import { useToast } from "./toast";
+import { useReloadToast } from "./useReloadToast";
 import { useOutput } from "./components/OutputPanel";
 
 // Shared open/save state for a config file, with the dirty-discard
@@ -11,6 +12,7 @@ import { useOutput } from "./components/OutputPanel";
 export function useFileEditor(onAuthLost: () => void) {
   const { t } = useI18n();
   const toast = useToast();
+  const notifyReload = useReloadToast();
   const output = useOutput();
   const ask = useConfirm();
 
@@ -82,13 +84,15 @@ export function useFileEditor(onAuthLost: () => void) {
     return true;
   }, [confirmDiscard, reset]);
 
-  const save = useCallback(async () => {
+  // reload is undefined for the default behavior (LN_DEFAULT_RELOAD_ON_SAVE),
+  // or true/false to force or skip the post-save reload for this save.
+  const save = useCallback(async (reload?: boolean) => {
     if (!path || saving || readOnly || !dirty) return;
     setSaving(true);
     try {
       let res;
       try {
-        res = await api.writeFile(path, content, baseHash || undefined);
+        res = await api.writeFile(path, content, baseHash || undefined, reload);
       } catch (err) {
         // Conflict: the file changed on disk. The buffer is kept either
         // way; overwriting retries without the base hash.
@@ -101,16 +105,12 @@ export function useFileEditor(onAuthLost: () => void) {
           danger: true,
         });
         if (!overwrite) return;
-        res = await api.writeFile(path, content);
+        res = await api.writeFile(path, content, undefined, reload);
       }
       setSavedContent(content);
       setBaseHash(res.hash ?? "");
       toast(t.saved);
-      // Auto-reload runs server-side after the save passes nginx -t; a
-      // second toast tells the user it also went live (or needs a manual
-      // reload if it failed).
-      if (res.reloaded) toast(t.reloaded);
-      else if (res.reloadError) toast(t.reloadFailed, "warn");
+      notifyReload(res);
       if (res.output?.includes("warn")) output(t.output, res.output);
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
@@ -122,7 +122,7 @@ export function useFileEditor(onAuthLost: () => void) {
     } finally {
       setSaving(false);
     }
-  }, [path, saving, readOnly, dirty, content, baseHash, ask, toast, t, output, handleErr]);
+  }, [path, saving, readOnly, dirty, content, baseHash, ask, toast, t, output, handleErr, notifyReload]);
 
   return {
     path,
