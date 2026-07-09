@@ -7,7 +7,7 @@ import uiProxyTls from "!!raw-loader!@site/../docker/ui-proxy-tls.conf";
 # Light setup
 
 The light image is nginx plus the Lightngx UI: the smallest stack, for plain
-reverse-proxy management. It is the baseline the [full](./images.md) and
+reverse-proxy management. It is the baseline the [full](./full.md) and
 [hardened](./hardened.md) setups build on; [Choosing a setup](./setups.md)
 compares the three. In a hurry, jump to the [one-shot script](#one-shot-setup).
 
@@ -154,5 +154,5 @@ Then open `http://localhost:9000` and create the first administrator.
 - [Sites and streams](./sites.md): manage vhosts and TCP/UDP proxies.
 - [Accounts and access](./accounts.md): users, roles, two-factor and OIDC login.
 - [Security](./security.md): how Lightngx is hardened, and how to expose it.
-- [Full setup](./images.md): add a CrowdSec WAF, traffic stats and gate runtime.
+- [Full setup](./full.md): add a CrowdSec WAF, traffic stats and gate runtime.
 - [Hardened setup](./hardened.md): add an auth gate in front of the UI.

@@ -19,7 +19,7 @@ edits and reloads nginx on the public internet is worth an extra layer. This
 setup adds an **authentication gate at the nginx level**, in front of the
 Lightngx login, so an unauthenticated request never reaches the app.
 
-It builds on the [full setup](./images.md) for its lua runtime (lua-nginx-module
+It builds on the [full setup](./full.md) for its lua runtime (lua-nginx-module
 plus lua-resty-openidc); the light image does not have it. [Choosing a
 setup](./setups.md) compares the three. In a hurry, jump to the
 [one-shot script](#one-shot-setup).

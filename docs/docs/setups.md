@@ -5,8 +5,8 @@ it; each builds on the one before.
 
 | Setup | Image | Adds | Pick it when |
 | --- | --- | --- | --- |
-| [Light](./getting-started.md) | `:latest` (`:light`) | nginx plus the Lightngx UI, nothing else | Most setups. Smallest image, plain reverse-proxy management |
-| [Full](./images.md) | `:full` | An in-nginx CrowdSec WAF bouncer, traffic stats (VTS), and the lua runtime (`lua-resty-openidc`) for nginx-side auth gates | You want a WAF, traffic stats, or OIDC/TOTP gates in front of upstreams |
+| [Light](./light.md) | `:latest` (`:light`) | nginx plus the Lightngx UI, nothing else | Most setups. Smallest image, plain reverse-proxy management |
+| [Full](./full.md) | `:full` | An in-nginx CrowdSec WAF bouncer, traffic stats (VTS), and the lua runtime (`lua-resty-openidc`) for nginx-side auth gates | You want a WAF, traffic stats, or OIDC/TOTP gates in front of upstreams |
 | [Hardened](./hardened.md) | `:full` plus a gate | Everything in full, plus an nginx-level OIDC/TOTP gate in front of the Lightngx login itself | You expose the UI to the internet and want a wall before the app |
 
 ## What the full image adds
@@ -24,7 +24,7 @@ variable can never break nginx.
   dependency tree on the lua path, so a `rewrite_by_lua_block` gate works with no
   extra wiring.
 
-The [Full setup](./images.md) wires up CrowdSec and shows the VTS and gate
+The [Full setup](./full.md) wires up CrowdSec and shows the VTS and gate
 extras. The [Hardened setup](./hardened.md) uses that gate runtime to put an
 OIDC/TOTP check in front of the Lightngx UI itself.
 

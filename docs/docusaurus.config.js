@@ -64,7 +64,7 @@ const config = {
         title: "Lightngx",
         logo: { alt: "Lightngx", src: "img/favicon.svg" },
         items: [
-          { to: "/getting-started", label: "Getting started", position: "left" },
+          { to: "/setups", label: "Setup", position: "left" },
           { to: "/configuration", label: "Configuration", position: "left" },
           {
             href: "https://github.com/buco7854/lightngx",
@@ -79,7 +79,7 @@ const config = {
           {
             title: "Docs",
             items: [
-              { label: "Getting started", to: "/getting-started" },
+              { label: "Setup", to: "/setups" },
               { label: "Configuration", to: "/configuration" },
               { label: "Security", to: "/security" },
             ],
@@ -103,6 +103,19 @@ const config = {
         additionalLanguages: ["nginx", "bash"],
       },
     }),
+
+  plugins: [
+    // Keep the pre-rename URLs alive: /getting-started -> /light, /images -> /full.
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          { from: "/getting-started", to: "/light" },
+          { from: "/images", to: "/full" },
+        ],
+      },
+    ],
+  ],
 
   themes: [
     // Offline search: builds a local index at compile time, no external service.

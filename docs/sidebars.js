@@ -12,8 +12,8 @@ const sidebars = {
       items: [
         "requirements",
         "setups",
-        "getting-started",
-        "images",
+        "light",
+        "full",
         "hardened",
         "without-docker",
       ],

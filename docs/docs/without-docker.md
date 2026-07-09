@@ -12,7 +12,7 @@ should work. But if something misbehaves, please
 fixed.
 :::
 
-What you give up compared to the images: the [full image's](./images.md)
+What you give up compared to the images: the [full image's](./full.md)
 extras (CrowdSec bouncer, VTS traffic stats, the lua runtime for auth
 gates) are built into that image's nginx and do not apply to your distro's
 nginx, and there is no baked-in supervision or logrotate wiring: your
@@ -54,7 +54,7 @@ sudo LN_ADMIN_USER=admin \
 ```
 
 Open port 9000, log in, and put nginx behind it later as described in
-[Getting started](./getting-started.md#running-behind-a-front-proxy). The
+[Getting started](./light.md#running-behind-a-front-proxy). The
 [Configuration](./configuration.md) page lists every variable if your
 nginx lives somewhere else.
 

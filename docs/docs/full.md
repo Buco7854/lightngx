@@ -6,7 +6,7 @@ import crowdsecLocal from "!!raw-loader!@site/../example/full/crowdsec/conf/conf
 
 # Full setup
 
-The full image is the [light setup](./getting-started.md) plus three extras
+The full image is the [light setup](./light.md) plus three extras
 built into one image: an in-nginx CrowdSec WAF bouncer, traffic stats (VTS), and
 the lua runtime for nginx-side auth gates. [Choosing a setup](./setups.md)
 compares the three flavours. In a hurry, jump to the
@@ -42,7 +42,7 @@ Then start it:
 docker compose up -d
 ```
 
-Open the UI the same way as the [light setup](./getting-started.md#reaching-the-ui-from-another-machine).
+Open the UI the same way as the [light setup](./light.md#reaching-the-ui-from-another-machine).
 [Configuration](./configuration.md) is the full variable list.
 
 ## CrowdSec bouncer

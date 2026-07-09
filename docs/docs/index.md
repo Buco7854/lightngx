@@ -84,10 +84,10 @@ functionality.
 - [System requirements](./requirements.md) is the short list of what it
   needs.
 - [Choosing a setup](./setups.md) compares the light, full and hardened stacks.
-  [Light setup](./getting-started.md) walks through a first run with Docker
+  [Light setup](./light.md) walks through a first run with Docker
   Compose, and [Running without Docker](./without-docker.md) covers the bare
   binary.
-- [Full setup](./images.md) adds a CrowdSec WAF, traffic stats and the gate
+- [Full setup](./full.md) adds a CrowdSec WAF, traffic stats and the gate
   runtime; [Hardened setup](./hardened.md) puts an auth gate in front of the UI.
 - [Configuration](./configuration.md) is the full list of environment
   variables.
