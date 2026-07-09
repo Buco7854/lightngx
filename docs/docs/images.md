@@ -4,20 +4,48 @@ import fullEnv from "!!raw-loader!@site/../example/full/.env.example";
 import vtsVhost from "!!raw-loader!@site/../example/full/conf.d/20-vhost-traffic-status.conf";
 import crowdsecLocal from "!!raw-loader!@site/../example/full/crowdsec/conf/config.yaml.local";
 
-# Light and full images
+# Full setup
 
-One Dockerfile builds two flavours, selected with `--target`.
+The full image is the [light setup](./getting-started.md) plus three extras
+built into one image: an in-nginx CrowdSec WAF bouncer, traffic stats (VTS), and
+the lua runtime for nginx-side auth gates. [Choosing a setup](./setups.md)
+compares the three flavours. In a hurry, jump to the
+[one-shot script](#one-shot-setup).
 
-| Tag | Contents | For |
-| --- | --- | --- |
-| `ghcr.io/buco7854/lightngx:latest` (also `:light`) | nginx plus the lightngx binary, and nothing else | Plain reverse-proxy management, smallest image |
-| `ghcr.io/buco7854/lightngx:full` | Everything in light, plus the CrowdSec lua bouncer, nginx-module-vts, and the lua runtime with `lua-resty-openidc` for nginx-side auth gates | Stacks that want an in-nginx WAF, traffic stats, or OIDC and TOTP gates in front of upstreams |
+This page wires up a full-image reverse proxy with the CrowdSec bouncer:
+CrowdSec (the LAPI and its Postgres database) runs alongside, and Lightngx
+registers as a bouncer with a key you generate. It is a trimmed working homelab
+stack; add a firewall bouncer, a CrowdSec dashboard or a cert manager as you see
+fit.
 
-There is no on/off switch for the extras. Each feature turns on from its own
-required input, and on the light image those inputs simply warn and do nothing.
-A misapplied variable can never break nginx.
+## Set up the stack
 
-## CrowdSec bouncer (full)
+Save this as `docker-compose.yml` in an empty directory:
+
+<CodeBlock language="yaml" title="docker-compose.yml">{fullCompose}</CodeBlock>
+
+Save this as `.env` beside it and set the two required secrets (the bouncer key
+is any random string, shared with CrowdSec):
+
+<CodeBlock language="ini" title=".env">{fullEnv}</CodeBlock>
+
+CrowdSec reads its database connection from a mounted `config.yaml.local` (the
+image has no `DB_*` env, so without it CrowdSec silently uses SQLite and ignores
+the Postgres service). Save this as `crowdsec/conf/config.yaml.local`; it takes
+the credentials from the same `.env`:
+
+<CodeBlock language="yaml" title="crowdsec/conf/config.yaml.local">{crowdsecLocal}</CodeBlock>
+
+Then start it:
+
+```sh
+docker compose up -d
+```
+
+Open the UI the same way as the [light setup](./getting-started.md#reaching-the-ui-from-another-machine).
+[Configuration](./configuration.md) is the full variable list.
+
+## CrowdSec bouncer
 
 The full image compiles NDK, lua-nginx-module (with the OpenResty LuaJIT) and
 nginx-module-vts against the exact nginx it ships, and installs the CrowdSec
@@ -32,7 +60,7 @@ captcha templates, and writes `CROWDSEC_LAPI_URL` (optional) and
 entrypoint only ever creates what is missing, and never overwrites a file you
 have edited.
 
-## Traffic stats with VTS (full)
+## Traffic stats with VTS
 
 The full image loads the VTS module by default, but configures nothing else for
 it: no zone, no dashboard, no vhost. The module stays inert until you add a
@@ -40,12 +68,11 @@ it: no zone, no dashboard, no vhost. The module stays inert until you add a
 own config. Once you do, it serves a Lightngx-styled dashboard that is compiled
 into the module by default.
 
-The `example/full/` stack ships a ready-to-use vhost that serves the dashboard
-on a private `:9113`. Copy it into your seeded config
-(`nginx/conf/conf.d/20-vhost-traffic-status.conf`) and uncomment the matching
-`127.0.0.1:9113:9113` port bind in the compose:
+Save this as `nginx/conf/conf.d/20-vhost-traffic-status.conf`, then uncomment the
+matching `127.0.0.1:9113:9113` port bind in the compose to reach the page at
+`http://127.0.0.1:9113/status`:
 
-<CodeBlock language="nginx" title="example/full/conf.d/20-vhost-traffic-status.conf">{vtsVhost}</CodeBlock>
+<CodeBlock language="nginx" title="nginx/conf/conf.d/20-vhost-traffic-status.conf">{vtsVhost}</CodeBlock>
 
 :::warning Do not load VTS twice
 If your config already has its own `load_module` for VTS, remove it. A duplicate
@@ -62,7 +89,7 @@ You have three options for the dashboard:
   sub-paths. The details are in
   [docker/vts/README.md](https://github.com/buco7854/lightngx/blob/main/docker/vts/README.md).
 
-## Auth gates in front of your upstreams (full)
+## Auth gates in front of your upstreams
 
 The full image carries the runtime to gate any `server{}` or `location{}`
 behind an OIDC or TOTP check before requests reach the proxied app:
@@ -77,48 +104,22 @@ The [hardened setup](./hardened.md) is a complete, ready-to-run example of
 exactly this: an OIDC gate with a TOTP fallback (and a standalone TOTP gate)
 put in front of the Lightngx UI itself.
 
-## Example stack
+## One-shot setup
 
-A full-image reverse proxy with the CrowdSec bouncer wired up: CrowdSec (the
-LAPI and its Postgres database) runs alongside, and Lightngx registers as a
-bouncer with a key you generate. This is a trimmed working homelab stack; add a
-firewall bouncer, a CrowdSec dashboard or a cert manager as you see fit.
-
-Copy this block into an empty directory. It fetches the two files the stack
-needs, generates the secrets, and starts everything:
+Prefer to skip the steps? This copies the full stack into `./lightngx`,
+generates the secrets, starts it, and leaves nothing else behind:
 
 ```sh
-mkdir lightngx && cd lightngx
-base=https://raw.githubusercontent.com/buco7854/lightngx/main/example/full
-curl -fsSL $base/docker-compose.yml -o docker-compose.yml
-mkdir -p crowdsec/conf
-curl -fsSL $base/crowdsec/conf/config.yaml.local -o crowdsec/conf/config.yaml.local
+tmp=$(mktemp -d)
+git clone --depth 1 https://github.com/buco7854/lightngx "$tmp"
+mkdir -p lightngx && cp -a "$tmp/example/full/." ./lightngx/ && rm -rf "$tmp"
+cd lightngx
 { echo "CROWDSEC_BOUNCER_KEY=$(openssl rand -hex 16)"
   echo "CROWDSEC_DB_PASSWORD=$(openssl rand -hex 16)"
   echo "LN_SESSION_SECRET=$(openssl rand -hex 32)"; } > .env
 docker compose up -d
 ```
 
-The bouncer key is shared: CrowdSec registers it on first boot and Lightngx
-authenticates with the same value. Everything else about the bouncer (ban and
-captcha templates, the resolver drop-in) is seeded on start.
-
-<details>
-<summary>The three files, to read or paste by hand</summary>
-
-<CodeBlock language="yaml" title="docker-compose.yml">{fullCompose}</CodeBlock>
-
-<CodeBlock language="ini" title=".env">{fullEnv}</CodeBlock>
-
-CrowdSec reads its database connection from this mounted `config.yaml.local`
-(the image has no `DB_*` env, so without it CrowdSec silently uses SQLite and
-ignores the Postgres service). It takes the credentials from the same `.env`:
-
-<CodeBlock language="yaml" title="crowdsec/conf/config.yaml.local">{crowdsecLocal}</CodeBlock>
-
-</details>
-
-See [Configuration](./configuration.md) for the full variable list. To automate
-certificates, point a cert manager (Certbot, CertWarden, acme.sh, …) at your
-certificate directory and have it reload nginx through a scoped
+To automate certificates, point a cert manager (Certbot, CertWarden, acme.sh,
+…) at your certificate directory and have it reload nginx through a scoped
 [API key](./api-keys.md) with the `nginx:reload` scope.

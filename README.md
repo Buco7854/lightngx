@@ -57,8 +57,8 @@ one. No Docker? The binary is fully static, see
 | `ghcr.io/buco7854/lightngx:latest` (`:light`) | nginx plus the lightngx binary |
 | `ghcr.io/buco7854/lightngx:full` | light plus the CrowdSec bouncer, nginx-module-vts, and the lua runtime for auth gates |
 
-See [Light and full images](https://buco7854.github.io/lightngx/images) for
-what turns on the extras.
+See [Choosing a setup](https://buco7854.github.io/lightngx/setups) for the
+differences and how the extras turn on.
 
 ## Philosophy
 

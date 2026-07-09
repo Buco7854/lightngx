@@ -4,47 +4,36 @@ import lightEnv from "!!raw-loader!@site/../example/light/.env.example";
 import uiProxy from "!!raw-loader!@site/../docker/ui-proxy.conf";
 import uiProxyTls from "!!raw-loader!@site/../docker/ui-proxy-tls.conf";
 
-# Getting started
+# Light setup
 
-Lightngx is a single container: nginx plus a web UI to manage it. Run it with
-Docker Compose.
+The light image is nginx plus the Lightngx UI: the smallest stack, for plain
+reverse-proxy management. It is the baseline the [full](./images.md) and
+[hardened](./hardened.md) setups build on; [Choosing a setup](./setups.md)
+compares the three. In a hurry, jump to the [one-shot script](#one-shot-setup).
 
 ## Run it
 
-Copy this block into an empty directory. It fetches the compose, sets a session
-secret so logins survive restarts, and starts the stack:
+Save this as `docker-compose.yml` in an empty directory:
+
+<CodeBlock language="yaml" title="docker-compose.yml">{lightCompose}</CodeBlock>
+
+It runs as-is. To set a session secret (so logins survive restarts) or other
+knobs, save a `.env` beside it:
+
+<CodeBlock language="ini" title=".env">{lightEnv}</CodeBlock>
+
+Then start it:
 
 ```sh
-mkdir lightngx && cd lightngx
-curl -fsSL https://raw.githubusercontent.com/buco7854/lightngx/main/example/light/docker-compose.yml -o docker-compose.yml
-echo "LN_SESSION_SECRET=$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
 
 **On the machine running it**, open **`http://localhost:9000`**: the first visit
 is a setup page where you create the first administrator.
 
-<details>
-<summary>Prefer to paste the compose by hand? Here it is.</summary>
-
-<CodeBlock language="yaml" title="docker-compose.yml">{lightCompose}</CodeBlock>
-
-</details>
-
-## Change a setting
-
-Everything else has a sensible default. The compose reads a few extras from that
-`.env` beside it:
-
-<CodeBlock language="ini" title=".env">{lightEnv}</CodeBlock>
-
 [Configuration](./configuration.md) is the full list of `LN_*` variables. To use
 one that is not in the `.env` above, add it to the compose's `environment:` list
 (that is all a variable needs to take effect).
-
-The rest of this page is reference: reaching the UI from another machine,
-choosing an image, pre-seeding the admin, where data lives, and running behind a
-proxy.
 
 ## Reaching the UI from another machine
 
@@ -58,26 +47,28 @@ Cookies default to `auto`: the `Secure` flag follows the request scheme, so one
 instance works over plain HTTP on the LAN and HTTPS from a front proxy at the
 same time, with no env change.
 
-- **Expose 9000 directly (local HTTP only).** Set `UI_BIND=0.0.0.0` in the
-  compose and browse `http://<host>:9000` from your LAN.
-- **Copy a proxy vhost into `conf.d`.** Two examples ship in the image at
-  `/usr/share/lightngx/examples/`: an HTTP one (LAN-only on `:9001`, publish it
-  with `- "9001:9001"`) and an HTTPS one that terminates TLS. Copy one out and
-  reload:
+**Option 1 — expose 9000 directly (local HTTP only).** Set `UI_BIND=0.0.0.0` in
+the compose and browse `http://<host>:9000` from your LAN.
+
+**Option 2 — copy a proxy vhost into `conf.d`.** Two examples ship in the image
+under `/usr/share/lightngx/examples/`. Save the HTTP one as
+`nginx/conf/conf.d/lightngx.conf`; it answers private-network addresses only on
+`:9001`, so publish that port (uncomment `- "9001:9001"` in the compose) and
+browse `http://<host>:9001` from your LAN:
+
+<CodeBlock language="nginx" title="nginx/conf/conf.d/lightngx.conf (HTTP, LAN only, :9001)">{uiProxy}</CodeBlock>
+
+Or the HTTPS one, which terminates TLS. Set your domain and certificate paths,
+then reload:
+
+<CodeBlock language="nginx" title="nginx/conf/conf.d/lightngx.conf (HTTPS)">{uiProxyTls}</CodeBlock>
+
+Either file is already in the image, so you can copy it out instead of pasting:
 
 ```sh
 docker compose cp nginx:/usr/share/lightngx/examples/ui-proxy.conf ./nginx/conf/conf.d/lightngx.conf
 docker compose exec nginx nginx -s reload
 ```
-
-<details>
-<summary>The two example vhosts</summary>
-
-<CodeBlock language="nginx" title="ui-proxy.conf (HTTP, LAN only, :9001)">{uiProxy}</CodeBlock>
-
-<CodeBlock language="nginx" title="ui-proxy-tls.conf (HTTPS; set your domain + certs)">{uiProxyTls}</CodeBlock>
-
-</details>
 
 :::warning Expose 9000 directly only for local HTTP
 Do not put an external HTTPS proxy straight in front of port 9000: the app
@@ -87,16 +78,6 @@ above) instead, or set `LN_TRUSTED_PROXIES` to your proxy.
 :::
 
 For a public deployment, put an [auth gate](./hardened.md) in front.
-
-## Light or full image
-
-| Tag | Adds | Pick it when |
-| --- | --- | --- |
-| `:latest` (`:light`) | nginx + the Lightngx binary, nothing else | most setups; smallest image |
-| `:full` | an in-nginx CrowdSec WAF bouncer, traffic stats (VTS), and the lua runtime for OIDC/TOTP auth gates | you want a WAF, stats, or an [auth gate](./hardened.md) |
-
-See [Light and full images](./images.md) for what each extra turns on and a
-complete example stack.
 
 ## Pre-seeding the first admin
 
@@ -152,9 +133,26 @@ WebAuthn needs a stable hostname. It works when you reach the UI directly or
 through a proxy that preserves the `Host` header, but not over a bare IP
 address. Use `localhost` or a real domain.
 
+## One-shot setup
+
+Prefer to skip the steps? This copies the light stack into `./lightngx`, sets a
+session secret, starts it, and leaves nothing else behind:
+
+```sh
+tmp=$(mktemp -d)
+git clone --depth 1 https://github.com/buco7854/lightngx "$tmp"
+mkdir -p lightngx && cp -a "$tmp/example/light/." ./lightngx/ && rm -rf "$tmp"
+cd lightngx
+echo "LN_SESSION_SECRET=$(openssl rand -hex 32)" > .env
+docker compose up -d
+```
+
+Then open `http://localhost:9000` and create the first administrator.
+
 ## Next steps
 
 - [Sites and streams](./sites.md): manage vhosts and TCP/UDP proxies.
 - [Accounts and access](./accounts.md): users, roles, two-factor and OIDC login.
 - [Security](./security.md): how Lightngx is hardened, and how to expose it.
+- [Full setup](./images.md): add a CrowdSec WAF, traffic stats and gate runtime.
 - [Hardened setup](./hardened.md): add an auth gate in front of the UI.

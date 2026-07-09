@@ -7,22 +7,28 @@ const sidebars = {
     "screenshots",
     {
       type: "category",
-      label: "Guide",
+      label: "Setup",
       collapsible: false,
       items: [
         "requirements",
+        "setups",
         "getting-started",
+        "images",
+        "hardened",
         "without-docker",
-        "sites",
-        "accounts",
-        "api-keys",
       ],
+    },
+    {
+      type: "category",
+      label: "Guide",
+      collapsible: false,
+      items: ["sites", "accounts", "api-keys"],
     },
     {
       type: "category",
       label: "Reference",
       collapsible: false,
-      items: ["configuration", "security", "hardened", "images", "development"],
+      items: ["configuration", "security", "development"],
     },
   ],
 };

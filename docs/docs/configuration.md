@@ -84,5 +84,5 @@ how roles are assigned.
 | `CROWDSEC_LAPI_KEY` | | Bouncer API key. Setting it activates the CrowdSec bouncer and is written into the bouncer config |
 | `CROWDSEC_LAPI_URL` | | LAPI URL written into the bouncer config when set, for example `http://crowdsec:8080` |
 
-See [Light and full images](./images.md) for what the full image adds and how
-the extras turn on.
+See [Full setup](./images.md) for what the full image adds and how the extras
+turn on.
