@@ -28,7 +28,8 @@ services:
       - "./lightngx:/var/lib/lightngx"  # accounts + settings; keep this volume
     environment:
       - TZ=${TZ:-UTC}
-      # 32+ chars so logins survive a restart (openssl rand -hex 32).
+      # Optional: pin the session secret (32+ chars); unset, a generated key
+      # stored in the data volume is used.
       - LN_SESSION_SECRET=${LN_SESSION_SECRET:-}
       # Roles forced to set up 2FA. admin,user to include users; empty to let
       # the admin decide in-app.

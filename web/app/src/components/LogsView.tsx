@@ -8,6 +8,13 @@ import { Btn, Combobox, SearchInput, StatusDot } from "../ui";
 const PAGE_BYTES = 64 * 1024;
 const MAX_LINES = 5000;
 
+// nginx error-log severity tags; access-log lines stay uncolored.
+function lineTone(line: string): string {
+  if (/\[(?:error|crit|alert|emerg)\]/.test(line)) return " text-danger";
+  if (line.includes("[warn]")) return " text-warn";
+  return "";
+}
+
 export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
   const { t } = useI18n();
   const toast = useToast();
@@ -223,7 +230,7 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
           shown.map((line, i) => (
             <div
               key={i}
-              className="border-b border-line/70 px-4 py-0.5 whitespace-pre-wrap break-all select-text last:border-b-0"
+              className={`border-b border-line/70 px-4 py-0.5 whitespace-pre-wrap break-all select-text last:border-b-0${lineTone(line)}`}
             >
               {line}
             </div>

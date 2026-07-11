@@ -17,8 +17,8 @@ Save this as `docker-compose.yml` in an empty directory:
 
 <CodeBlock language="yaml" title="docker-compose.yml">{lightCompose}</CodeBlock>
 
-It runs as-is. To set a session secret (so logins survive restarts) or other
-knobs, save a `.env` beside it:
+It runs as-is. To pin the session secret or set other knobs, save a `.env`
+beside it:
 
 <CodeBlock language="ini" title=".env">{lightEnv}</CodeBlock>
 
@@ -84,7 +84,7 @@ For a public deployment, put an [auth gate](./hardened.md) in front.
 To skip the setup page, generate a bcrypt hash and pass it in:
 
 ```sh
-docker run --rm -i ghcr.io/buco7854/lightngx:latest lightngx hash
+docker run --rm -i ghcr.io/buco7854/lightngx:latest hash
 ```
 
 Set `LN_ADMIN_USER` and `LN_ADMIN_PASSWORD_HASH` from the result. A password
@@ -96,16 +96,33 @@ change made later in the app is kept.
 the bind mount is empty. After that Lightngx never touches it on its own.
 
 Accounts and settings live in an SQLite file under the data directory
-(`lightngx/` in the example above). Keep that volume if you want your users,
-sessions and settings to survive a container rebuild.
+(`lightngx/` in the example above), next to the generated session-signing and
+TOTP-encryption keys. Keep that volume and your users, sessions, settings and
+two-factor enrollments all survive a container rebuild.
 
-:::tip Keep sessions valid across rebuilds
-Set `LN_SESSION_SECRET` to a fixed value of 32 or more characters so session
-cookies survive a container recreation. Left unset it is generated at each
-start, which logs everyone out on restart. Stored TOTP secrets are encrypted
-with a separate key kept in the data directory, so keep that volume to preserve
-two-factor enrollments.
+:::tip Session secret
+`LN_SESSION_SECRET`, when set (32 or more characters), signs the session
+cookies. Left unset, a generated key stored in the data directory does the
+same job, so sessions survive restarts either way — set the variable only
+when the data directory itself is ephemeral, or when you want the secret in
+your config instead of on disk.
 :::
+
+## Backups and upgrades
+
+Two directories are worth backing up: the data volume above (accounts, API
+keys, settings, the session and encryption keys) and `nginx/conf` (your whole
+nginx configuration). Both are plain files; copy them wherever your backups
+go.
+
+To upgrade, pull the new image and recreate:
+
+```sh
+docker compose pull && docker compose up -d
+```
+
+The database schema migrates itself on start, and your nginx config is never
+touched by an upgrade (the seed only ever runs into an *empty* `/etc/nginx`).
 
 ## Running behind a front proxy
 

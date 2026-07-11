@@ -4,7 +4,9 @@
 #
 #   --target light  ->  nginx (official Debian image) + the single static Go
 #                       binary that serves the management UI and supervises
-#                       the nginx master. Nothing else — the lean default.
+#                       the nginx master. Nothing else — the lean image.
+#                       (Always pass a --target: with none, Docker builds the
+#                       last stage, which is full.)
 #
 #   --target full   ->  light PLUS the CrowdSec lua bouncer, nginx-module-vts,
 #                       and lua-resty-openidc. CrowdSec turns on from

@@ -22,13 +22,13 @@ const sidebars = {
       type: "category",
       label: "Guide",
       collapsible: false,
-      items: ["sites", "accounts", "api-keys"],
+      items: ["editor", "sites", "accounts", "api-keys"],
     },
     {
       type: "category",
       label: "Reference",
       collapsible: false,
-      items: ["configuration", "security", "development"],
+      items: ["configuration", "security", "troubleshooting", "development"],
     },
   ],
 };

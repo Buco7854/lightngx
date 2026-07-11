@@ -279,9 +279,9 @@ Neither is required: leave the setting unset and the built-in page is used.
 ## Does it conflict with the config Lightngx seeds?
 
 No, with one thing to know. The gate runs in the **rewrite** phase, so it sits
-beside the CrowdSec bouncer's access phase rather than shadowing it; the seeded
-LAN UI proxy listens on a different port; and the gate's shared-dict names are
-unique. The catch is that CrowdSec's seeded config already sets
+beside the CrowdSec bouncer's access phase rather than shadowing it; the
+example LAN UI proxy listens on a different port; and the gate's shared-dict
+names are unique. The catch is that CrowdSec's seeded config already sets
 `lua_package_path` and `lua_ssl_*` (in `crowdsec_nginx.conf`) and `resolver`
 (in `resolver.conf`), and nginx rejects a duplicate of any of them. So this
 example never sets them: the lua lives on the default require path (no
