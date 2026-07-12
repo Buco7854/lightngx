@@ -3,6 +3,16 @@
 The failure modes people actually hit, with the shortest path out of each.
 If yours is not here, [open an issue](https://github.com/buco7854/lightngx/issues).
 
+## A giant Go stack dump when the container stops
+
+A wall of `SIGQUIT: quit` followed by `goroutine … runtime.gopark` in the
+container logs at shutdown is not a crash. The nginx base image declares
+`STOPSIGNAL SIGQUIT`, and on images older than this fix the binary did not
+handle SIGQUIT, so the Go runtime reacted with its default dump-and-exit —
+noisy, but it happened while the container was stopping anyway, and no data
+is affected. Update the image: lightngx now treats SIGQUIT as a normal
+graceful stop (and the image declares `STOPSIGNAL SIGTERM`).
+
 ## The UI is up but nginx shows "not running"
 
 That is the design working: in the container Lightngx supervises nginx and

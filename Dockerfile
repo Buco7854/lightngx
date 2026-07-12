@@ -246,6 +246,12 @@ RUN chmod 755 /usr/local/bin/lightngx-entrypoint /usr/local/bin/lightngx \
 
 ENV LN_SUPERVISE=true
 
+# The nginx base image sets STOPSIGNAL SIGQUIT for its own master process,
+# but PID 1 here is lightngx, which shuts down (itself and nginx) on
+# SIGTERM. It handles SIGQUIT too, so either value works; SIGTERM states
+# the intent.
+STOPSIGNAL SIGTERM
+
 EXPOSE 80 443 9000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
