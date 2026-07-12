@@ -22,6 +22,9 @@ services:
       # shortcut past the gate, copy examples/ui-proxy.conf into conf.d (:9001)
       # and uncomment:
       # - "9001:9001"
+      # Optional VTS traffic-status page: copy conf.d/20-vhost-traffic-status.conf
+      # into your config, then uncomment to reach it at 127.0.0.1:9113/status.
+      # - "127.0.0.1:9113:9113"
     volumes:
       - "./nginx/conf:/etc/nginx"       # your whole nginx config; seeded if empty
       - "./nginx/logs:/var/log/nginx"   # shared with CrowdSec
@@ -34,7 +37,8 @@ services:
       - "./nginx/lua/totp.lua:/usr/local/share/lua/5.1/totp.lua:ro"
     environment:
       - TZ=${TZ:-UTC}
-      # 32+ chars so logins survive a restart (openssl rand -hex 32).
+      # Optional: pin the session secret (32+ chars); unset, a generated key
+      # stored in the data volume is used.
       - LN_SESSION_SECRET=${LN_SESSION_SECRET:-}
       # Roles forced to set up 2FA. admin,user to include users; empty to let
       # the admin decide in-app.

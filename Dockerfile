@@ -4,7 +4,9 @@
 #
 #   --target light  ->  nginx (official Debian image) + the single static Go
 #                       binary that serves the management UI and supervises
-#                       the nginx master. Nothing else — the lean default.
+#                       the nginx master. Nothing else — the lean image.
+#                       (Always pass a --target: with none, Docker builds the
+#                       last stage, which is full.)
 #
 #   --target full   ->  light PLUS the CrowdSec lua bouncer, nginx-module-vts,
 #                       and lua-resty-openidc. CrowdSec turns on from
@@ -244,6 +246,12 @@ RUN chmod 755 /usr/local/bin/lightngx-entrypoint /usr/local/bin/lightngx \
 
 ENV LN_SUPERVISE=true
 
+# The nginx base image sets STOPSIGNAL SIGQUIT for its own master process,
+# but PID 1 here is lightngx, which shuts down (itself and nginx) on
+# SIGTERM. It handles SIGQUIT too, so either value works; SIGTERM states
+# the intent.
+STOPSIGNAL SIGTERM
+
 EXPOSE 80 443 9000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
@@ -303,7 +311,7 @@ COPY --from=assets  /assets/luatree/lib/lua/5.1/   /usr/local/lib/lua/5.1/
 # templates (with pristine copies at /usr/share/crowdsec/lua-templates.dist
 # so an empty bind mount can be re-seeded), bouncer config at
 # /etc/crowdsec/bouncers/. The nginx snippet goes to the integrations dist
-# dir — only seeded into conf.d when LN_CROWDSEC=true.
+# dir — only seeded into conf.d when CROWDSEC_LAPI_KEY is set.
 COPY --from=assets /assets/bouncer /tmp/bouncer
 RUN set -eux; \
     mkdir -p /usr/lib/crowdsec/lua /var/lib/crowdsec/lua/templates \

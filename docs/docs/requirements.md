@@ -5,9 +5,10 @@ SQLite database inside, so the list is short.
 
 ## Server
 
-- **Linux.** The container images are published for amd64 and arm64. The
-  bare binary builds for any platform Go supports, but only Linux is used
-  and tested.
+- **Linux.** The container images are published for amd64. The bare binary
+  builds for any platform Go supports (arm64 included), but only Linux is
+  used and tested; see [Running without Docker](./without-docker.md) to
+  build it yourself.
 - **nginx.** Any reasonably recent version. The UI talks to nginx through
   its binary (`nginx -t`), its pidfile and signals, not through a plugin,
   so there is nothing to compile into nginx itself.

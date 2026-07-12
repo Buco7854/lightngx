@@ -15,9 +15,12 @@ before the first frontend build. Do not commit build output over it.
 ## Docker images
 
 ```sh
-docker build -t lightngx .                    # light (default)
-docker build --target full -t lightngx:full . # full
+docker build --target light -t lightngx .     # light
+docker build --target full  -t lightngx:full . # full
 ```
+
+Always pass a `--target`: the full stage is the last one in the Dockerfile,
+so a bare `docker build .` produces the full image, not the light one.
 
 ## These docs
 

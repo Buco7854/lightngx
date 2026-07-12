@@ -119,7 +119,7 @@ func Load() (*Config, error) {
 
 		DefaultReloadOnSave: envBool("LN_DEFAULT_RELOAD_ON_SAVE", true),
 		FixConfigPerms:      envBool("LN_FIX_CONFIG_PERMS", true),
-		NginxUser:      env("LN_NGINX_USER", ""),
+		NginxUser:           env("LN_NGINX_USER", ""),
 
 		LogPaths: splitPaths(env("LN_LOG_PATHS", "/var/log/nginx")),
 
@@ -160,7 +160,11 @@ func Load() (*Config, error) {
 		MaxEditSize: envInt64("LN_MAX_EDIT_SIZE", 2<<20),
 	}
 
-	if raw, ok := os.LookupEnv("LN_MFA_REQUIRED_ROLES"); ok {
+	// Empty counts as unset, like every other LN_* variable: the compose
+	// files pass LN_MFA_REQUIRED_ROLES through from .env, and an empty
+	// value there must fall back to the in-app policy, not silently pin
+	// the policy to "no roles".
+	if raw := os.Getenv("LN_MFA_REQUIRED_ROLES"); len(splitList(raw)) > 0 {
 		c.MFARolesPinned = true
 		for _, role := range splitList(raw) {
 			if role != "admin" && role != "user" {

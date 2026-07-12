@@ -28,10 +28,10 @@ Two-factor auth uses TOTP (an authenticator app) and WebAuthn (security keys
 and passkeys). You can enable either or both.
 
 Set `LN_MFA_REQUIRED_ROLES` to pin which roles must use it, for example `admin`
-or `admin,user`. Leave it unset to let the first admin choose the policy in the
-app instead. A user who is required to enroll is walked through it on their next
-login, and can switch freely between TOTP and WebAuthn until they validate one
-method.
+or `admin,user`; admins then cannot change the policy in the UI. Leave it unset
+(or empty) to let the first admin choose the policy in the app instead. A user
+who is required to enroll is walked through it on their next login, and can
+switch freely between TOTP and WebAuthn until they validate one method.
 
 Anyone can manage their own factors and password from the **Profile** page.
 TOTP secrets are encrypted at rest.
@@ -39,8 +39,11 @@ TOTP secrets are encrypted at rest.
 ## Administration
 
 Admins manage the MFA policy and every account from the **Administration**
-page: create users, change roles, and reset passwords. The last remaining admin
-cannot be demoted or deleted, so you can never lock yourself out.
+page: create users, change roles, reset passwords, and reset a user's
+two-factor enrollment when they lose their authenticator or key. The last
+remaining admin cannot be demoted or deleted, so you can never lock yourself
+out. (Lost access anyway? See
+[Troubleshooting](./troubleshooting.md#locked-out-of-the-ui).)
 
 <ThemedImage
   alt="User management on the administration page"

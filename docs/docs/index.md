@@ -93,3 +93,5 @@ functionality.
   runtime; [Hardened setup](./hardened.md) puts an auth gate in front of the UI.
 - [Configuration](./configuration.md) is the full list of environment
   variables.
+- [Troubleshooting](./troubleshooting.md) has the quick way out of the
+  common failure modes.

@@ -229,7 +229,10 @@ func run() error {
 	}()
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	// SIGQUIT included: the nginx base image declares STOPSIGNAL SIGQUIT,
+	// and unhandled it would trigger the Go runtime's goroutine dump
+	// instead of a graceful stop.
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	select {
 	case sig := <-sigCh:
 		slog.Info("shutting down", "signal", sig.String())

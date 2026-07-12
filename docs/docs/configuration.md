@@ -7,6 +7,20 @@ The example compose files show only the common variables. To set any other one,
 add it to the `nginx` service's `environment:` list — that is all a variable
 needs to take effect.
 
+Two conventions apply everywhere:
+
+- **Empty means unset.** A variable set to an empty string behaves exactly
+  like one that is absent, so compose pass-throughs such as
+  `LN_SESSION_SECRET=${LN_SESSION_SECRET:-}` are safe.
+- **Invalid values fall back to the default.** A boolean that does not parse
+  (say `LN_SUPERVISE=maybe`) silently becomes its default rather than an
+  error, so double-check spelling on the `true`/`false` switches.
+
+Variables like `UI_BIND`, `TZ` and `CERT_DIR` that appear in the example
+compose files are **compose-level** settings (they shape the container's
+ports and mounts); the binary itself only reads `LN_*` and the CrowdSec
+variables below.
+
 ## Core
 
 | Variable | Default | Description |
@@ -23,8 +37,8 @@ needs to take effect.
 | `LN_DEFAULT_RELOAD_ON_SAVE` | `true` | Default for whether saving a config change reloads nginx (after it passes `nginx -t`). The editor's split **Save** button overrides this per save: its dropdown offers **Save and reload nginx** and **Save without reloading**. Set `false` to make plain Save validate and write without reloading |
 | `LN_LOG_PATHS` | `/var/log/nginx` | Log files or directories, separated by comma or colon |
 | `LN_MAX_EDIT_SIZE` | `2097152` | Largest editable file, in bytes |
-| `LN_DOCKER_LOGS` | `false` | Keep the base image's stdout and stderr log symlinks; this disables the log viewer for those files |
-| `LN_FIX_CONFIG_PERMS` | `true` | Own the config as the nginx worker user so the workers can read it: on start the entrypoint chowns `/etc/nginx`, and files the UI creates or renames are chowned to the same user. Set `false` to leave ownership untouched |
+| `LN_DOCKER_LOGS` | `false` | Container only: keep the base image's stdout and stderr log symlinks; this disables the log viewer for those files |
+| `LN_FIX_CONFIG_PERMS` | `true` | Own the config as the nginx worker user so the workers can read it: on start the container entrypoint chowns `/etc/nginx`, and files the UI creates or renames are chowned to the same user (the per-file part applies outside the container too). Set `false` to leave ownership untouched |
 | `LN_NGINX_USER` | the `user` directive | The worker user `LN_FIX_CONFIG_PERMS` chowns to; auto-detected from `nginx.conf` (`nginx`, or `www-data` on a Debian-style config) |
 
 ## Accounts and MFA
@@ -33,7 +47,7 @@ needs to take effect.
 | --- | --- | --- |
 | `LN_ADMIN_USER` | | Optional seed admin username; setting it skips first-run setup |
 | `LN_ADMIN_PASSWORD_HASH` | | bcrypt hash for the seed admin, generated with `lightngx hash` |
-| `LN_MFA_REQUIRED_ROLES` | admin decides in-app | Pin the MFA policy, for example `admin` or `admin,user`. Empty means no requirement |
+| `LN_MFA_REQUIRED_ROLES` | admin decides in-app | Pin the MFA policy, for example `admin` or `admin,user`; admins then cannot change it in the UI. Unset or empty leaves the choice to the first admin, in-app |
 | `LN_WEBAUTHN_RPID` | request host | WebAuthn relying-party ID; defaults to the browser host |
 | `LN_WEBAUTHN_ORIGINS` | request origin | Allowed WebAuthn origins, comma-separated |
 
@@ -59,10 +73,10 @@ how roles are assigned.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `LN_SESSION_SECRET` | auto-generated | 32 or more characters; signs session cookies. Set it to keep sessions valid across ephemeral containers. TOTP-secret encryption uses a separate key in the data directory |
+| `LN_SESSION_SECRET` | auto-generated | 32 or more characters; signs session cookies. Unset, a generated key is stored in the data directory, so sessions already survive restarts as long as that directory persists. Set it when the data directory is ephemeral. TOTP-secret encryption uses a separate key in the data directory |
 | `LN_SESSION_TTL` | `12h` | Session lifetime |
-| `LN_SECURE_COOKIES` | `auto` | Secure-cookie policy. `auto` mirrors the request scheme (Secure over HTTPS, not over plain HTTP), so HTTP-LAN and HTTPS work at once. `true`/`false` force it |
-| `LN_TRUSTED_PROXIES` | | CIDRs allowed to set `X-Forwarded-For`, used for audit logs and rate limiting behind a proxy |
+| `LN_SECURE_COOKIES` | `auto` | Secure-cookie policy. `auto` mirrors the request scheme (Secure over HTTPS, not over plain HTTP), so HTTP-LAN and HTTPS work at once. `always`/`never` (or `true`/`false`) force it |
+| `LN_TRUSTED_PROXIES` | | CIDRs (bare IPs work too) allowed to set `X-Forwarded-For`, used for audit logs and rate limiting behind a proxy |
 
 ## Sites and streams
 
@@ -86,3 +100,14 @@ how roles are assigned.
 
 See [Full setup](./full.md) for what the full image adds and how the extras
 turn on.
+
+## CLI subcommands
+
+The binary doubles as a small CLI. Run without arguments it starts the
+server; with one of these it does its job and exits:
+
+| Command | What it does |
+| --- | --- |
+| `lightngx hash` | Prompts for a password (minimum 8 characters) and prints its bcrypt hash for `LN_ADMIN_PASSWORD_HASH`. Reads stdin when piped, so `echo 'secret123' \| lightngx hash` works in scripts. In Docker: `docker run --rm -i ghcr.io/buco7854/lightngx:latest hash` |
+| `lightngx health` | Probes the running UI (it honors `LN_LISTEN`) and exits non-zero when it does not answer. The image's `HEALTHCHECK` uses it; on bare metal it slots into any monitoring that runs commands |
+| `lightngx version` | Prints the build version (also `-v`, `--version`) |
