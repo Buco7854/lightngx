@@ -166,6 +166,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username, password }),
     }),
+  passkeyLoginBegin: () =>
+    request<WebAuthnGetOptions>("/api/auth/passkey/begin", { method: "POST", body: "{}" }),
+  passkeyLoginFinish: (cred: unknown) =>
+    request<{ user: string; level: Level }>("/api/auth/passkey/finish", {
+      method: "POST",
+      body: JSON.stringify(cred),
+    }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
 
   // MFA at login (partial "mfa" session -> full)

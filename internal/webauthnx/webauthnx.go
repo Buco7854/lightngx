@@ -6,6 +6,7 @@ package webauthnx
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -65,12 +66,16 @@ type user struct {
 }
 
 func (u *user) WebAuthnID() []byte {
-	// Stable per-user handle. 8-byte big-endian id.
-	id := u.u.ID
-	return []byte{
-		byte(id >> 56), byte(id >> 48), byte(id >> 40), byte(id >> 32),
-		byte(id >> 24), byte(id >> 16), byte(id >> 8), byte(id),
+	// Stable per-user handle: the 8-byte big-endian user id.
+	return binary.BigEndian.AppendUint64(nil, uint64(u.u.ID))
+}
+
+// userIDFromHandle inverts WebAuthnID.
+func userIDFromHandle(h []byte) (int64, error) {
+	if len(h) != 8 {
+		return 0, errors.New("bad user handle")
 	}
+	return int64(binary.BigEndian.Uint64(h)), nil
 }
 func (u *user) WebAuthnName() string                       { return u.u.Username }
 func (u *user) WebAuthnDisplayName() string                { return u.u.Username }
@@ -171,6 +176,49 @@ func (m *Manager) FinishLogin(r *http.Request, st *store.Store, u store.User, sd
 	if err != nil {
 		return err
 	}
+	return persistAssertion(st, cred)
+}
+
+// BeginPasskeyLogin starts a usernameless assertion. User verification is
+// required so the single ceremony carries two factors.
+func (m *Manager) BeginPasskeyLogin(r *http.Request) (any, *SessionData, error) {
+	w, err := m.forRequest(r)
+	if err != nil {
+		return nil, nil, err
+	}
+	return w.BeginDiscoverableLogin(webauthn.WithUserVerification(protocol.VerificationRequired))
+}
+
+// FinishPasskeyLogin validates a discoverable assertion, resolving the
+// account from the returned user handle.
+func (m *Manager) FinishPasskeyLogin(r *http.Request, st *store.Store, sd *SessionData) (store.User, error) {
+	w, err := m.forRequest(r)
+	if err != nil {
+		return store.User{}, err
+	}
+	handler := func(_, userHandle []byte) (webauthn.User, error) {
+		id, err := userIDFromHandle(userHandle)
+		if err != nil {
+			return nil, err
+		}
+		u, err := st.GetUser(id)
+		if err != nil {
+			return nil, err
+		}
+		return loadUser(st, u)
+	}
+	wu, cred, err := w.FinishPasskeyLogin(handler, *sd, r)
+	if err != nil {
+		return store.User{}, err
+	}
+	if err := persistAssertion(st, cred); err != nil {
+		return store.User{}, err
+	}
+	return wu.(*user).u, nil
+}
+
+// persistAssertion stores the advanced sign count, rejecting clones.
+func persistAssertion(st *store.Store, cred *webauthn.Credential) error {
 	// go-webauthn flags a sign-counter regression rather than erroring; a
 	// clone and the original both authenticate unless we reject it here.
 	if cred.Authenticator.CloneWarning {

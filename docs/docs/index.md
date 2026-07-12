@@ -50,8 +50,9 @@ container, or drop the binary next to your existing nginx.
   reachable to fix a broken config even when nginx will not start.
 
 - **Accounts, roles and MFA.** Local users (admin or user) in an embedded
-  SQLite database, two-factor auth via TOTP and WebAuthn, an admin-controlled
-  policy for which roles must use it, and optional OIDC login.
+  SQLite database, two-factor auth via TOTP and WebAuthn, direct passkey
+  sign-in, an admin-controlled policy for which roles must use MFA, and
+  optional OIDC login.
 
 - **Themes and languages.** Dark, light and system themes. English and French.
 

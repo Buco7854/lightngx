@@ -95,6 +95,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/auth/status", s.handleAuthStatus)
 	mux.HandleFunc("POST /api/auth/setup", s.handleSetup)
 	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/auth/passkey/begin", s.handlePasskeyLoginBegin)
+	mux.HandleFunc("POST /api/auth/passkey/finish", s.handlePasskeyLoginFinish)
 	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
 	if s.oidc != nil {
 		mux.HandleFunc("GET /api/auth/oidc/login", s.oidc.Begin)

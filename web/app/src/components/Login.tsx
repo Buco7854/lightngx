@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "../api";
 import { useI18n } from "../i18n";
 import type { ThemePref } from "../theme";
+import { getAssertion, supported as passkeySupported } from "../webauthn";
 import { Btn } from "../ui";
 import AuthShell from "./AuthShell";
 import { AuthError, Field } from "./auth/fields";
@@ -22,6 +23,7 @@ export default function Login({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const passkeys = passkeySupported();
 
   useEffect(() => {
     api
@@ -43,6 +45,22 @@ export default function Login({
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) setError(t.tooManyAttempts);
       else setError(t.loginFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function passkeySignIn() {
+    setBusy(true);
+    setError("");
+    try {
+      const opts = await api.passkeyLoginBegin();
+      const assertion = await getAssertion(opts);
+      await api.passkeyLoginFinish(assertion);
+      onAuthed();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) setError(t.tooManyAttempts);
+      else setError(t.passkeyFailed);
     } finally {
       setBusy(false);
     }
@@ -73,19 +91,24 @@ export default function Login({
         </Btn>
       </form>
 
+      {(passkeys || oidc) && (
+        <div className="flex items-center gap-2.5 text-xs text-dim before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
+          {t.or}
+        </div>
+      )}
+      {passkeys && (
+        <Btn onClick={passkeySignIn} disabled={busy}>
+          {t.signInPasskey}
+        </Btn>
+      )}
       {oidc && (
-        <>
-          <div className="flex items-center gap-2.5 text-xs text-dim before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
-            {t.or}
-          </div>
-          <Btn
-            onClick={() => {
-              window.location.href = "/api/auth/oidc/login";
-            }}
-          >
-            {oidcLabel ? t.signInWith(oidcLabel) : t.signInOIDC}
-          </Btn>
-        </>
+        <Btn
+          onClick={() => {
+            window.location.href = "/api/auth/oidc/login";
+          }}
+        >
+          {oidcLabel ? t.signInWith(oidcLabel) : t.signInOIDC}
+        </Btn>
       )}
     </AuthShell>
   );

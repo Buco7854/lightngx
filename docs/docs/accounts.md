@@ -27,6 +27,11 @@ live in the embedded SQLite database. There are three ways to sign in.
 Two-factor auth uses TOTP (an authenticator app) and WebAuthn (security keys
 and passkeys). You can enable either or both.
 
+A registered passkey also signs you in on its own: the login page offers
+**Sign in with a passkey**, which skips the password entirely. The
+authenticator verifies you with a PIN or biometric during the ceremony, so a
+passkey login counts as two factors and never prompts for another one.
+
 Set `LN_MFA_REQUIRED_ROLES` to pin which roles must use it, for example `admin`
 or `admin,user`; admins then cannot change the policy in the UI. Leave it unset
 (or empty) to let the first admin choose the policy in the app instead. A user

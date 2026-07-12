@@ -46,8 +46,8 @@ one. No Docker? The binary is fully static, see
   warnings.
 - **nginx control.** Test, reload and restart. In the container the binary
   supervises nginx, so the UI stays up to fix a broken config.
-- **Accounts and MFA.** Local users with roles, TOTP and WebAuthn, and optional
-  OIDC. API keys for automation.
+- **Accounts and MFA.** Local users with roles, TOTP and WebAuthn, passkey
+  sign-in, and optional OIDC. API keys for automation.
 - **Themes and languages.** Dark, light and system. English and French.
 
 ## Two images

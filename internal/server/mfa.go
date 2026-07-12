@@ -81,8 +81,9 @@ func (s *Server) handleVerifyTOTP(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	waCookieLogin = "ln_wa_login"
-	waCookieReg   = "ln_wa_reg"
+	waCookieLogin   = "ln_wa_login"
+	waCookieReg     = "ln_wa_reg"
+	waCookiePasskey = "ln_wa_pk"
 )
 
 func (s *Server) setWACookie(w http.ResponseWriter, r *http.Request, name string, sd *webauthnx.SessionData) error {
@@ -176,6 +177,52 @@ func (s *Server) handleVerifyWebAuthnFinish(w http.ResponseWriter, r *http.Reque
 	}
 	s.audit(r, "mfa.webauthn.verified", "username", sess.User)
 	writeJSON(w, http.StatusOK, map[string]string{"level": auth.LevelFull})
+}
+
+// ---- direct passkey login (public, no prior session) ----
+
+func (s *Server) handlePasskeyLoginBegin(w http.ResponseWriter, r *http.Request) {
+	if !s.limiter.Allow(s.clientIP(r)) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
+		return
+	}
+	opts, sd, err := s.webauthn.BeginPasskeyLogin(r)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+	if err := s.setWACookie(w, r, waCookiePasskey, sd); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, opts)
+}
+
+func (s *Server) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
+	ip := s.clientIP(r)
+	if !s.limiter.Allow(ip) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
+		return
+	}
+	sd, ok := s.readWACookie(w, r, waCookiePasskey)
+	if !ok {
+		return
+	}
+	u, err := s.webauthn.FinishPasskeyLogin(r, s.accounts.Store(), sd)
+	if err != nil {
+		s.limiter.Fail(ip)
+		s.audit(r, "login.passkey_failed")
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "passkey sign-in failed"})
+		return
+	}
+	s.limiter.Reset(ip)
+	// A user-verified passkey satisfies any MFA requirement by itself.
+	if err := s.issueSession(w, r, u, "local", auth.LevelFull); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
+		return
+	}
+	s.audit(r, "login.passkey", "username", u.Username)
+	writeJSON(w, http.StatusOK, map[string]string{"user": u.Username, "level": auth.LevelFull})
 }
 
 // ---- enrolment (LevelEnroll during forced setup, or LevelFull in profile) ----

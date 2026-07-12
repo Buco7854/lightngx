@@ -10,6 +10,8 @@ const en = {
   signIn: "Sign in",
   signInOIDC: "Sign in with SSO",
   signInWith: (name: string) => `Sign in with ${name}`,
+  signInPasskey: "Sign in with a passkey",
+  passkeyFailed: "Passkey sign-in failed",
   conflictTitle: "File changed on disk",
   conflictMessage:
     "Someone else saved this file after you opened it. Overwrite it with your version? Cancel keeps your edits in the editor, so you can copy them and reopen the file to see the latest version.",
@@ -261,6 +263,8 @@ const fr: typeof en = {
   signIn: "Se connecter",
   signInOIDC: "Connexion via SSO",
   signInWith: (name: string) => `Connexion via ${name}`,
+  signInPasskey: "Se connecter avec une clé d'accès",
+  passkeyFailed: "Échec de la connexion par clé d'accès",
   conflictTitle: "Fichier modifié sur le disque",
   conflictMessage:
     "Quelqu'un d'autre a enregistré ce fichier après son ouverture. L'écraser avec votre version ? Annuler conserve vos modifications dans l'éditeur : vous pouvez les copier puis rouvrir le fichier pour voir la dernière version.",
