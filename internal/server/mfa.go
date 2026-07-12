@@ -211,7 +211,7 @@ func (s *Server) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request
 	u, err := s.webauthn.FinishPasskeyLogin(r, s.accounts.Store(), sd)
 	if err != nil {
 		s.limiter.Fail(ip)
-		s.audit(r, "login.passkey_failed")
+		s.audit(r, "login.passkey_failed", "reason", err.Error())
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "passkey sign-in failed"})
 		return
 	}
