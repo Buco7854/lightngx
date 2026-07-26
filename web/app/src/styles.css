@@ -1,0 +1,355 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-bg: #f1f3f6;
+  --color-panel: #ffffff;
+  --color-raise: #ffffff;
+  --color-inset: #f7f8fa;
+  --color-hov: #f1f3f6;
+  --color-hov-raise: #f0f2f5;
+  --color-ctrl: #eceff3;
+  --color-ctrl-hi: #dfe4ea;
+  --color-line: #e2e6ec;
+  --color-line-soft: #edf0f4;
+  --color-fg: #101828;
+  --color-dim: #5b6472;
+  --color-faint: #8b94a2;
+
+  --color-accent: #008a35;
+  --color-accent-hi: #00752c;
+  --color-accent-ink: #056f2f;
+  --color-accent-fg: #ffffff;
+  --color-accent-soft: #e3f3e9;
+
+  --color-danger: #d3382c;
+  --color-danger-ink: #b32a1f;
+  --color-danger-soft: #fcebea;
+
+  --color-warn: #b57d00;
+  --color-warn-ink: #8b5f00;
+  --color-warn-soft: #fdf3e1;
+
+  --color-ok: #1a8a44;
+  --color-ok-ink: #146f39;
+  --color-ok-soft: #e6f4eb;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+:root {
+  color-scheme: light;
+  --elev-1: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --elev-2: 0 2px 4px rgb(16 24 40 / 0.05), 0 8px 20px -6px rgb(16 24 40 / 0.14);
+  --elev-3: 0 8px 16px -4px rgb(16 24 40 / 0.1), 0 24px 48px -12px rgb(16 24 40 / 0.24);
+  /* Menus and comboboxes float straight over the page, not over a dimmed
+     backdrop like modals do, so they carry a tighter shadow. */
+  --elev-pop: 0 4px 10px -2px rgb(16 24 40 / 0.08), 0 16px 32px -12px rgb(16 24 40 / 0.2);
+}
+
+[data-theme="dark"] {
+  --color-bg: #0d0d0d;
+  --color-panel: #171717;
+  --color-raise: #202020;
+  --color-inset: #121212;
+  --color-hov: #1f1f1f;
+  --color-hov-raise: #2b2b2b;
+  --color-ctrl: #262626;
+  --color-ctrl-hi: #333333;
+  --color-line: #2b2b2b;
+  --color-line-soft: #202020;
+  --color-fg: #ededed;
+  --color-dim: #a3a3a3;
+  --color-faint: #757575;
+
+  --color-accent: #22a850;
+  --color-accent-hi: #1d9448;
+  --color-accent-ink: #45cc76;
+  --color-accent-fg: #ffffff;
+  --color-accent-soft: #16281c;
+
+  --color-danger: #d9453a;
+  --color-danger-ink: #ff8479;
+  --color-danger-soft: #2b1614;
+
+  --color-warn: #c08c10;
+  --color-warn-ink: #e9b845;
+  --color-warn-soft: #2a2110;
+
+  --color-ok: #22a850;
+  --color-ok-ink: #52d180;
+  --color-ok-soft: #16281c;
+
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.3);
+  --elev-2: 0 2px 6px rgb(0 0 0 / 0.4), 0 10px 24px -8px rgb(0 0 0 / 0.5);
+  --elev-3: 0 10px 20px -6px rgb(0 0 0 / 0.5), 0 28px 56px -16px rgb(0 0 0 / 0.65);
+  /* Black on a near-black page reads as a smudge, so the popup shadow stays
+     small here and the border does the separating. */
+  --elev-pop: 0 2px 6px rgb(0 0 0 / 0.35), 0 8px 18px -8px rgb(0 0 0 / 0.4);
+  color-scheme: dark;
+}
+
+@utility elev-1 {
+  box-shadow: var(--elev-1);
+}
+@utility elev-2 {
+  box-shadow: var(--elev-2);
+}
+@utility elev-3 {
+  box-shadow: var(--elev-3);
+}
+@utility elev-pop {
+  box-shadow: var(--elev-pop);
+}
+
+@utility auth-backdrop {
+  background:
+    radial-gradient(
+      60rem 32rem at 15% -10%,
+      color-mix(in srgb, var(--color-accent) 12%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      44rem 26rem at 95% 105%,
+      color-mix(in srgb, var(--color-accent) 8%, transparent),
+      transparent 70%
+    );
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-fg font-sans text-[15px];
+  -webkit-text-size-adjust: 100%;
+}
+
+@keyframes ln-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ln-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@keyframes ln-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+
+@keyframes ln-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@utility anim-fade {
+  animation: ln-fade 0.15s ease-out;
+}
+@utility anim-pop {
+  animation: ln-pop 0.13s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top;
+}
+@utility anim-rise {
+  animation: ln-rise 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@utility anim-slide-up {
+  animation: ln-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Slim themed scrollbars everywhere. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ctrl-hi) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ctrl-hi);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* CodeMirror needs plain CSS: its DOM is created outside React. */
+.editor-host .cm-editor {
+  height: 100%;
+  font-size: 14px;
+  background: var(--color-inset);
+}
+
+.editor-host .cm-editor.cm-focused {
+  outline: none;
+}
+
+.editor-host .cm-scroller {
+  font-family: var(--font-mono);
+  line-height: 1.65;
+  -webkit-overflow-scrolling: touch;
+}
+
+.editor-host .cm-content {
+  padding: 12px 0 40vh;
+  caret-color: var(--color-accent-ink);
+}
+
+.editor-host .cm-line {
+  padding-left: 14px;
+  padding-right: 16px;
+}
+
+.editor-host .cm-gutters {
+  background: var(--color-inset);
+  color: var(--color-faint);
+  border-right: 1px solid var(--color-line-soft);
+  padding-right: 2px;
+}
+
+.editor-host .cm-lineNumbers .cm-gutterElement {
+  padding: 0 10px 0 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-host .cm-activeLine {
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+
+.editor-host .cm-activeLineGutter {
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  color: var(--color-fg);
+}
+
+.editor-host .cm-cursor {
+  border-left-width: 2px;
+  border-left-color: var(--color-accent-ink);
+}
+
+.editor-host .cm-selectionBackground,
+.editor-host .cm-editor ::selection {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent) !important;
+}
+
+.editor-host .cm-matchingBracket {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.editor-host .cm-panels {
+  background: var(--color-panel);
+  color: var(--color-fg);
+  border-color: var(--color-line);
+}
+
+.editor-host .cm-panels.cm-panels-bottom {
+  border-top: 1px solid var(--color-line);
+}
+
+.editor-host .cm-panel.cm-search {
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.editor-host .cm-panel.cm-search label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-dim);
+}
+
+/* CodeMirror's base theme hardcodes a white .cm-textfield background
+   (it has no registered dark theme here), so in dark mode the search
+   panel showed near-white text on a white input. !important because
+   the base theme is injected after this sheet. */
+.editor-host .cm-panels .cm-textfield {
+  background-color: var(--color-inset) !important;
+  color: var(--color-fg) !important;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.editor-host .cm-panels .cm-textfield:focus {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+.editor-host .cm-panels .cm-button {
+  background-color: var(--color-ctrl) !important;
+  background-image: none !important;
+  color: var(--color-fg) !important;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.editor-host .cm-panels .cm-button:hover {
+  background-color: var(--color-ctrl-hi) !important;
+}
+
+.editor-host .cm-panels .cm-panel-close {
+  color: var(--color-dim);
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.editor-host .cm-searchMatch {
+  background: color-mix(in srgb, var(--color-warn) 32%, transparent);
+  border-radius: 2px;
+}
+
+.editor-host .cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--color-warn) 60%, transparent);
+}
+
+.editor-host .cm-selectionMatch {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-radius: 2px;
+}

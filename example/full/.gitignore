@@ -1,0 +1,13 @@
+# Runtime state created when you run this stack. Never commit these.
+# crowdsec/conf/config.yaml.local is tracked (the DB wiring); the rest is runtime.
+.env
+/nginx/conf/
+/nginx/logs/
+/lightngx/
+/crowdsec/db/
+/crowdsec/data/
+/crowdsec/conf/config.yaml
+/crowdsec/conf/local_api_credentials.yaml
+/crowdsec/conf/online_api_credentials.yaml
+# Track the DB wiring despite the repo-root `*.local` rule.
+!/crowdsec/conf/config.yaml.local

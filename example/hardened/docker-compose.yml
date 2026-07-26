@@ -1,0 +1,104 @@
+# Hardened deployment: the full stack plus an nginx-level auth gate (OIDC with
+# TOTP fallback, or TOTP) in front of the UI. Same as the full example, except
+# port 9000 is not published (the gate fronts the UI) and the gate lua is
+# mounted. Fill the secrets in .env, create the gate key files, then:
+# docker compose up -d. Full walkthrough: https://buco7854.github.io/lightngx/hardened
+
+services:
+  nginx:
+    image: ghcr.io/buco7854/lightngx:full
+    container_name: nginx
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+    ports:
+      - "80:80"
+      - "443:443"
+      # The gated vhost (10-lightngx-gated.conf) is the way in. For a LAN
+      # shortcut past the gate, copy examples/ui-proxy.conf into conf.d (:9001)
+      # and uncomment:
+      # - "9001:9001"
+      # Optional VTS traffic-status page: copy conf.d/20-vhost-traffic-status.conf
+      # into your config, then uncomment to reach it at 127.0.0.1:9113/status.
+      # - "127.0.0.1:9113:9113"
+    volumes:
+      - "./nginx/conf:/etc/nginx"       # your whole nginx config; seeded if empty
+      - "./nginx/logs:/var/log/nginx"   # shared with CrowdSec
+      - "./lightngx:/var/lib/lightngx"  # accounts + settings; keep this volume
+      - "${CERT_DIR:-/etc/ssl/domains}:${CERT_DIR:-/etc/ssl/domains}:ro"
+      # The gate lua is the only piece outside /etc/nginx, so the only extra
+      # mount; it must exist before the first start (see the walkthrough).
+      - "./nginx/lua/oidc_gate.lua:/usr/local/share/lua/5.1/oidc_gate.lua:ro"
+      - "./nginx/lua/totp_gate.lua:/usr/local/share/lua/5.1/totp_gate.lua:ro"
+      - "./nginx/lua/totp.lua:/usr/local/share/lua/5.1/totp.lua:ro"
+    environment:
+      - TZ=${TZ:-UTC}
+      # Optional: pin the session secret (32+ chars); unset, a generated key
+      # stored in the data volume is used.
+      - LN_SESSION_SECRET=${LN_SESSION_SECRET:-}
+      # Roles forced to set up 2FA. admin,user to include users; empty to let
+      # the admin decide in-app.
+      - LN_MFA_REQUIRED_ROLES=${LN_MFA_REQUIRED_ROLES-admin}
+      # CrowdSec bouncer: a key turns it on; it is shared with the LAPI.
+      - CROWDSEC_LAPI_URL=${CROWDSEC_LAPI_URL:-http://crowdsec:8080}
+      - CROWDSEC_LAPI_KEY=${CROWDSEC_BOUNCER_KEY:?generate a shared bouncer key}
+      # Optional: pre-seed the first admin and skip the setup page.
+      # - LN_ADMIN_USER=${LN_ADMIN_USER:-}
+      # - LN_ADMIN_PASSWORD_HASH=${LN_ADMIN_PASSWORD_HASH:-}
+    depends_on:
+      - crowdsec
+    networks: [proxy]
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    restart: unless-stopped
+    depends_on:
+      crowdsec-db:
+        condition: service_healthy
+    environment:
+      - TZ=${TZ:-UTC}
+      - COLLECTIONS=${CROWDSEC_COLLECTIONS:-crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/appsec-virtual-patching}
+      - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY:?generate a shared bouncer key}
+      # DB connection lives in crowdsec/conf/config.yaml.local (the image reads
+      # no DB_* env); these just feed its ${...} expansion.
+      - CROWDSEC_DB_HOST=${CROWDSEC_DB_HOST:-crowdsec-db}
+      - CROWDSEC_DB_PORT=${CROWDSEC_DB_PORT:-5432}
+      - CROWDSEC_DB_USER=${CROWDSEC_DB_USER:-crowdsec}
+      - CROWDSEC_DB_PASSWORD=${CROWDSEC_DB_PASSWORD:?set a database password}
+      - CROWDSEC_DB_NAME=${CROWDSEC_DB_NAME:-crowdsec}
+    volumes:
+      - "./crowdsec/conf:/etc/crowdsec"
+      - "./crowdsec/data:/var/lib/crowdsec/data"
+      - "./nginx/logs:/var/log/nginx:ro"
+    expose:
+      - "8080"   # LAPI, compose network only
+    networks: [proxy]
+
+  crowdsec-db:
+    image: postgres:18-trixie
+    container_name: crowdsec-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=${TZ:-UTC}
+      - POSTGRES_DB=${CROWDSEC_DB_NAME:-crowdsec}
+      - POSTGRES_USER=${CROWDSEC_DB_USER:-crowdsec}
+      - POSTGRES_PASSWORD=${CROWDSEC_DB_PASSWORD:?set a database password}
+    volumes:
+      - "./crowdsec/db:/var/lib/postgresql"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CROWDSEC_DB_USER:-crowdsec} -d ${CROWDSEC_DB_NAME:-crowdsec}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [proxy]
+
+networks:
+  proxy:
+    driver: bridge

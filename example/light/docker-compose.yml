@@ -1,0 +1,39 @@
+# Light image: nginx plus the Lightngx UI. Fill secrets in .env; every LN_*
+# variable not shown here has a sensible default. Full reference:
+# https://buco7854.github.io/lightngx/configuration
+
+services:
+  nginx:
+    image: ghcr.io/buco7854/lightngx:latest
+    container_name: nginx
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+    ports:
+      - "80:80"
+      - "443:443"
+      - "${UI_BIND:-127.0.0.1}:9000:9000"   # UI, localhost-only by default
+      # Reach the UI from the network: set UI_BIND=0.0.0.0 (local HTTP only),
+      # or copy a proxy from /usr/share/lightngx/examples/ into conf.d and
+      # uncomment (the HTTP example answers on :9001).
+      # See https://buco7854.github.io/lightngx/light
+      # - "9001:9001"
+    volumes:
+      - "./nginx/conf:/etc/nginx"       # your whole nginx config; seeded if empty
+      - "./nginx/logs:/var/log/nginx"
+      - "./lightngx:/var/lib/lightngx"  # accounts + settings; keep this volume
+    environment:
+      - TZ=${TZ:-UTC}
+      # Optional: pin the session secret (32+ chars); unset, a generated key
+      # stored in the data volume is used.
+      - LN_SESSION_SECRET=${LN_SESSION_SECRET:-}
+      # Roles forced to set up 2FA. admin,user to include users; empty to let
+      # the admin decide in-app.
+      - LN_MFA_REQUIRED_ROLES=${LN_MFA_REQUIRED_ROLES-admin}
+      # Optional: pre-seed the first admin and skip the setup page.
+      # - LN_ADMIN_USER=${LN_ADMIN_USER:-}
+      # - LN_ADMIN_PASSWORD_HASH=${LN_ADMIN_PASSWORD_HASH:-}

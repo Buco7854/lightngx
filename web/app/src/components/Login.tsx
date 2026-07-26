@@ -1,0 +1,117 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { api, ApiError } from "../api";
+import { useI18n } from "../i18n";
+import type { ThemePref } from "../theme";
+import { getAssertion, supported as passkeySupported } from "../webauthn";
+import { Btn } from "../ui";
+import AuthShell from "./AuthShell";
+import { AuthError, Field } from "./auth/fields";
+
+export default function Login({
+  onAuthed,
+  themePref,
+  setThemePref,
+}: {
+  onAuthed: () => void;
+  themePref: ThemePref;
+  setThemePref: (p: ThemePref) => void;
+}) {
+  const { t } = useI18n();
+  const [oidc, setOidc] = useState(false);
+  const [oidcLabel, setOidcLabel] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const passkeys = passkeySupported();
+
+  useEffect(() => {
+    api
+      .authStatus()
+      .then((s) => {
+        setOidc(s.oidc);
+        setOidcLabel(s.oidcLabel ?? "");
+      })
+      .catch(() => {});
+  }, []);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await api.login(username, password);
+      onAuthed();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) setError(t.tooManyAttempts);
+      else setError(t.loginFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function passkeySignIn() {
+    setBusy(true);
+    setError("");
+    try {
+      const opts = await api.passkeyLoginBegin();
+      const assertion = await getAssertion(opts);
+      await api.passkeyLoginFinish(assertion);
+      onAuthed();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) setError(t.tooManyAttempts);
+      else setError(t.passkeyFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <AuthShell themePref={themePref} setThemePref={setThemePref}>
+      <h2 className="m-0 text-lg font-semibold tracking-tight">{t.loginTitle}</h2>
+      <form onSubmit={submit} className="flex flex-col gap-3.5">
+        <Field
+          label={t.username}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          autoComplete="username"
+          autoCapitalize="none"
+          required
+        />
+        <Field
+          label={t.password}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          required
+        />
+        {error && <AuthError>{error}</AuthError>}
+        <Btn type="submit" variant="primary" size="lg" className="mt-1" disabled={busy}>
+          {t.signIn}
+        </Btn>
+      </form>
+
+      {(passkeys || oidc) && (
+        <div className="flex items-center gap-3 text-[12px] text-faint before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
+          {t.or}
+        </div>
+      )}
+      {passkeys && (
+        <Btn size="lg" onClick={passkeySignIn} disabled={busy}>
+          {t.signInPasskey}
+        </Btn>
+      )}
+      {oidc && (
+        <Btn
+          size="lg"
+          onClick={() => {
+            window.location.href = "/api/auth/oidc/login";
+          }}
+        >
+          {oidcLabel ? t.signInWith(oidcLabel) : t.signInOIDC}
+        </Btn>
+      )}
+    </AuthShell>
+  );
+}
