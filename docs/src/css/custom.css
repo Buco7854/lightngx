@@ -1,0 +1,75 @@
+/**
+ * Theme tuned to match the Lightngx app: the same green accent
+ * (#009639 in light, #26b356 in dark) and a soft, rounded surface.
+ */
+
+:root {
+  --ifm-color-primary: #009639;
+  --ifm-color-primary-dark: #00872f;
+  --ifm-color-primary-darker: #007f2c;
+  --ifm-color-primary-darkest: #006924;
+  --ifm-color-primary-light: #00a53f;
+  --ifm-color-primary-lighter: #00ad42;
+  --ifm-color-primary-lightest: #00c74d;
+
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-base: system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --ifm-heading-font-weight: 650;
+  --ifm-navbar-shadow: 0 1px 0 var(--ifm-color-emphasis-200);
+  --ifm-global-radius: 0.6rem;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+}
+
+/* Infima sets its dark defaults on html[data-theme="dark"], so the
+   overrides need the same specificity or the backgrounds stay gray. */
+html[data-theme="dark"] {
+  --ifm-color-primary: #26b356;
+  --ifm-color-primary-dark: #22a14d;
+  --ifm-color-primary-darker: #209849;
+  --ifm-color-primary-darkest: #1a7d3c;
+  --ifm-color-primary-light: #3dbb68;
+  --ifm-color-primary-lighter: #49c072;
+  --ifm-color-primary-lightest: #6bcd8d;
+
+  --ifm-background-color: #0d1512;
+  --ifm-background-surface-color: #121b16;
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.08);
+}
+
+/* Screenshots read as framed panels, like the app's own surfaces. */
+.markdown img {
+  border-radius: var(--ifm-global-radius);
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* The overview banner draws its own rounded panel, so it takes no frame. */
+.markdown img.hero-banner {
+  display: block;
+  width: 100%;
+  margin-bottom: 1.75rem;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* No backdrop-filter on .navbar: it would create a containing block, which
+   traps the fixed-position mobile drawer (.navbar-sidebar) inside the
+   navbar's 60px box and renders the menu unusable on phones. */
+
+/* Code blocks are server-rendered with the light Prism theme and only swap to
+   the dark theme on hydration, so in dark mode every block flashes light for a
+   frame. The container and title bar set --prism-background-color INLINE (the
+   light value), so the override needs !important to win before hydration;
+   otherwise the top of the block (title + padding) stays white. Values match
+   themes.oneDark, so hydration is a no-op. Scoped to dark mode. */
+html[data-theme="dark"] .theme-code-block {
+  --prism-background-color: hsl(220, 13%, 18%) !important;
+  --prism-color: hsl(220, 14%, 71%) !important;
+}
+html[data-theme="dark"] pre.prism-code {
+  background-color: hsl(220, 13%, 18%) !important;
+  color: hsl(220, 14%, 71%) !important;
+}
