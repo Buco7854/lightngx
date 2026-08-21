@@ -103,14 +103,15 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className={`w-full max-w-md rounded-xl bg-panel p-6 shadow-2xl ${className}`}
-        onClick={(e) => e.stopPropagation()}
       >
         <h2 className="m-0 mb-4 text-[15px] font-semibold">{title}</h2>
         {children}
