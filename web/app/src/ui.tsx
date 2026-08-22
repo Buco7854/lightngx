@@ -93,6 +93,8 @@ export function Modal({
   children: ReactNode;
   className?: string;
 }) {
+  const backdropPointer = useRef<number | null>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -103,8 +105,16 @@ export function Modal({
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
-      onPointerDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+      onPointerDownCapture={(e) => {
+        backdropPointer.current = e.target === e.currentTarget ? e.pointerId : null;
+      }}
+      onPointerUp={(e) => {
+        const startedOnBackdrop = backdropPointer.current === e.pointerId;
+        backdropPointer.current = null;
+        if (startedOnBackdrop && e.target === e.currentTarget) onClose();
+      }}
+      onPointerCancel={() => {
+        backdropPointer.current = null;
       }}
     >
       <div
