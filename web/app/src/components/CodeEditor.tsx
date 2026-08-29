@@ -9,7 +9,13 @@ import {
   drawSelection,
   highlightSpecialChars,
 } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+  selectAll,
+} from "@codemirror/commands";
 import {
   StreamLanguage,
   syntaxHighlighting,
@@ -161,8 +167,31 @@ export default function CodeEditor({
         EditorView.lineWrapping,
       ],
     });
-    view.current = new EditorView({ state, parent: host.current });
+    const editor = new EditorView({ state, parent: host.current });
+    view.current = editor;
+
+    // Handle Select All during capture so the browser cannot apply it to the
+    // surrounding page before CodeMirror updates its document selection.
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        !(target instanceof Node) ||
+        !editor.contentDOM.contains(target) ||
+        event.key.toLowerCase() !== "a" ||
+        (!event.ctrlKey && !event.metaKey) ||
+        event.altKey ||
+        event.shiftKey
+      )
+        return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      selectAll(editor);
+    };
+    host.current.addEventListener("keydown", onKeyDown, true);
+
     return () => {
+      host.current?.removeEventListener("keydown", onKeyDown, true);
       view.current?.destroy();
       view.current = null;
     };
