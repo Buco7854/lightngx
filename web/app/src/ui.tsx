@@ -429,6 +429,8 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const backdropPointer = useRef<number | null>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -440,14 +442,23 @@ export function Modal({
   return (
     <div
       className="anim-fade fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]"
-      onClick={onClose}
+      onPointerDownCapture={(e) => {
+        backdropPointer.current = e.target === e.currentTarget ? e.pointerId : null;
+      }}
+      onPointerUp={(e) => {
+        const startedOnBackdrop = backdropPointer.current === e.pointerId;
+        backdropPointer.current = null;
+        if (startedOnBackdrop && e.target === e.currentTarget) onClose();
+      }}
+      onPointerCancel={() => {
+        backdropPointer.current = null;
+      }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className={`anim-rise flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-2xl border border-line bg-raise elev-3 ${maxW}`}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3 px-5 pt-5">
           {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
