@@ -321,3 +321,16 @@ export const InboxIcon = (p: P) => (
     <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
   </I>
 );
+
+export const TagIcon = (p: P) => (
+  <I {...p}>
+    <path d="M20 13 13 20a2 2 0 0 1-3 0L2 12V2h10l8 8a2 2 0 0 1 0 3Z" />
+    <path d="M7 7h.01" />
+  </I>
+);
+
+export const BoltIcon = (p: P) => (
+  <I {...p}>
+    <path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z" />
+  </I>
+);

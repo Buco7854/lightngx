@@ -274,7 +274,7 @@ export const api = {
   saveTag: (tag: Omit<Tag, "id">, id?: number) => request<Tag>(id ? `/api/tags/${id}` : "/api/tags", { method: id ? "PUT" : "POST", body: JSON.stringify(tag) }),
   deleteTag: (id: number) => request(`/api/tags/${id}`, { method: "DELETE" }),
   fileTags: (path: string) => request<{ manual: number[]; tags: number[]; automatic: number[] }>(`/api/config/tags?path=${encodeURIComponent(path)}`),
-  setFileTags: (path: string, tags: number[]) => request(`/api/config/tags?path=${encodeURIComponent(path)}`, { method: "PUT", body: JSON.stringify({ tags }) }),
+  setFileTags: (path: string, tags: number[]) => request<{ manual: number[]; automatic: number[]; tags: number[] }>(`/api/config/tags?path=${encodeURIComponent(path)}`, { method: "PUT", body: JSON.stringify({ tags }) }),
 
   tree: () => request<{ root: string; tree: TreeEntry }>("/api/config/tree"),
   readFile: (path: string) =>

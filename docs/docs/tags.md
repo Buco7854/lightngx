@@ -7,11 +7,18 @@ can edit configuration files. Partial MFA sessions and nginx API keys cannot.
 
 ## Create a tag
 
-Choose **Manage tags** above a list, enter a name, and save. A tag without rules
-is manual: open a file and choose **Tags** to assign or remove it. This also
-works immediately after creating a site, stream, or configuration file.
+Open a file, site, or stream and choose **Tags** in the editor rail. Its tag
+workspace lets you assign labels, create tags, edit their rules, and delete tags
+without navigating away or losing unsaved configuration changes. Assigned labels
+are also visible in the rail; select one to edit it directly. **Manage tags**
+above any list opens the same workspace without a file context.
 
-Add rules to make the same tag automatic. For example, create `auth-gate`, add
+Choose **New tag**, enter a name, and select **Manual** or **Smart**. When creating
+from an editor, **Assign to this file** is selected by default. Manual assignments
+save immediately when you change a checkbox. Definitions and rules use an explicit
+save button; closing an edited form offers to keep or discard the draft.
+
+Select **Smart** to add automatic rules. For example, create `auth-gate`, add
 a **File contents → Contains snippet** rule with the value
 `include snippets/auth-gate.conf;`, and save. Every file containing that literal
 text now receives the tag. Pasting a multiline snippet works too.
@@ -32,15 +39,18 @@ Content rules skip binary, unreadable, and oversized files (the editor's
 Escaping symlinks, directories, and special files are never scanned.
 
 An **Automatic** badge in a file's tag dialog indicates a rule-derived tag.
-Unchecking a manual assignment does not override an automatic match. Edit the
-rules or saved file contents to remove that match. Rules evaluate saved content,
+Unchecking a manual assignment does not override an automatic match. Select the
+tag’s name in the same workspace to edit its rules, or change the saved file
+contents to remove that match. Rules evaluate saved content,
 so unsaved editor changes do not affect tags. Reopening a list refreshes matches,
 including changes made outside Lightngx.
 
 ## Filter lists
 
-Expand **Tags** and choose **Include**, **Exclude**, or **Any** for each tag.
-Every included tag must match; a single excluded tag hides a file. These
+Use the searchable **Include** and **Exclude** pickers above a list. Selected
+tags appear as removable chips: `+` for included tags and `−` for excluded tags.
+Select a chip to remove that condition. Every included tag must match; a single
+excluded tag hides a file. These
 conditions combine with the text search and, for sites and streams, the state
 filter. **Clear tag filters** resets only the tag conditions.
 

@@ -125,6 +125,7 @@ export function useFileEditor(onAuthLost: () => void) {
   }, [path, saving, readOnly, dirty, content, baseHash, ask, toast, t, output, handleErr, notifyReload]);
 
   return {
+    revision: baseHash,
     path,
     content,
     setContent,

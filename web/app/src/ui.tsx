@@ -9,6 +9,7 @@ import {
   type ButtonHTMLAttributes,
   type CSSProperties,
   type InputHTMLAttributes,
+  type TextareaHTMLAttributes,
   type ReactNode,
   type Ref,
 } from "react";
@@ -23,6 +24,14 @@ import {
   XIcon,
 } from "./icons";
 
+const focusableSelector =
+  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]';
+function visibleControls(root: ParentNode): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+    (el) => el.getClientRects().length > 0,
+  );
+}
+
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
@@ -35,8 +44,13 @@ function useMenu({ align = "right", matchWidth = false } = {}) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  // Hidden until measured, so the panel never paints at an unplaced spot.
-  const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
+  const focusLast = useRef(false);
+  // Hidden until measured; revealing the panel must not transition, even
+  // when the reduced-motion stylesheet assigns transition durations globally.
+  const [style, setStyle] = useState<CSSProperties>({
+    visibility: "hidden",
+    transitionProperty: "none",
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -45,20 +59,53 @@ function useMenu({ align = "right", matchWidth = false } = {}) {
       if (!anchorRef.current?.contains(target) && !menuRef.current?.contains(target))
         setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const trigger = () => anchorRef.current?.querySelector<HTMLButtonElement>("button");
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        trigger()?.focus();
+      } else if (
+        ["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key) &&
+        menuRef.current?.getAttribute("role") === "menu" &&
+        menuRef.current.contains(e.target as Node)
+      ) {
+        const controls = visibleControls(menuRef.current);
+        const index = controls.indexOf(document.activeElement as HTMLElement);
+        const next =
+          e.key === "Home"
+            ? 0
+            : e.key === "End"
+              ? controls.length - 1
+              : (index + (e.key === "ArrowDown" ? 1 : -1) + controls.length) % controls.length;
+        e.preventDefault();
+        controls[next]?.focus();
+      } else if (e.key === "Tab" && menuRef.current?.contains(e.target as Node)) {
+        const button = trigger();
+        if (!button) return;
+        const scope = button.closest('[role="dialog"]') ?? document.body;
+        const controls = visibleControls(scope);
+        const index = controls.indexOf(button);
+        const next = controls[(index + (e.shiftKey ? -1 : 1) + controls.length) % controls.length];
+        e.preventDefault();
+        setOpen(false);
+        next?.focus();
+      }
+    };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("touchstart", onDoc);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("touchstart", onDoc);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [open]);
 
   useLayoutEffect(() => {
     if (!open) {
-      setStyle({ visibility: "hidden" });
+      setStyle({ visibility: "hidden", transitionProperty: "none" });
       return;
     }
     const place = () => {
@@ -75,9 +122,20 @@ function useMenu({ align = "right", matchWidth = false } = {}) {
       left = Math.max(pad, Math.min(left, window.innerWidth - pad - m.width));
       // Flip above the trigger when the panel would overflow the viewport.
       const below = a.bottom + gap;
-      const above = a.top - gap - m.height;
-      const top = below + m.height > window.innerHeight - pad && above > pad ? above : below;
-      setStyle({ top, left, ...(matchWidth && { width: a.width }) });
+      const roomBelow = window.innerHeight - pad - below;
+      const roomAbove = a.top - gap - pad;
+      const flip = m.height > roomBelow && roomAbove > roomBelow;
+      const maxHeight = Math.max(64, flip ? roomAbove : roomBelow);
+      const top = flip ? Math.max(pad, a.top - gap - Math.min(m.height, maxHeight)) : below;
+      setStyle({
+        transitionProperty: "none",
+        visibility: "visible",
+        top,
+        left,
+        maxHeight,
+        overflowY: "auto",
+        ...(matchWidth && { width: a.width }),
+      });
     };
     place();
     window.addEventListener("resize", place);
@@ -89,10 +147,29 @@ function useMenu({ align = "right", matchWidth = false } = {}) {
     };
   }, [open, align, matchWidth]);
 
+  useLayoutEffect(() => {
+    if (!open || style.visibility === "hidden" || menuRef.current?.getAttribute("role") !== "menu")
+      return;
+    const controls = visibleControls(menuRef.current);
+    controls[focusLast.current ? controls.length - 1 : 0]?.focus();
+  }, [open, style.visibility]);
+  const openMenu = (last = false) => {
+    focusLast.current = last;
+    setOpen(true);
+  };
   const close = useCallback(() => setOpen(false), []);
-  return { open, setOpen, close, anchorRef, menuRef, style };
+  return {
+    open,
+    setOpen,
+    openMenu,
+    close,
+    anchorRef,
+    menuRef,
+    style,
+    modalId:
+      anchorRef.current?.closest("[data-modal-id]")?.getAttribute("data-modal-id") ?? undefined,
+  };
 }
-
 
 export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
   return (
@@ -110,9 +187,17 @@ export function Toolbar({ className = "", children }: { className?: string; chil
   );
 }
 
-export function PageTitle({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function PageTitle({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <h1 className={`m-0 truncate text-[17px] leading-tight font-semibold tracking-tight ${className}`}>
+    <h1
+      className={`m-0 truncate text-[17px] leading-tight font-semibold tracking-tight ${className}`}
+    >
       {children}
     </h1>
   );
@@ -145,7 +230,6 @@ export function SectionHeading({
   );
 }
 
-
 type Variant =
   | "default"
   | "primary"
@@ -169,7 +253,7 @@ const btnSizes: Record<Size, string> = {
 
 const btnVariants: Record<Variant, string> = {
   default: "border border-line bg-panel text-fg elev-1 enabled:hover:bg-hov",
-  primary: "bg-accent text-accent-fg font-semibold elev-1 enabled:hover:bg-accent-hi",
+  primary: "bg-accent text-accent-fg dark:text-bg font-semibold elev-1 enabled:hover:bg-accent-hi",
   danger: "border border-danger/25 bg-danger-soft text-danger-ink enabled:hover:border-danger/40",
   "danger-solid": "bg-danger text-white font-semibold elev-1 enabled:hover:bg-danger-ink",
   ghost: "text-dim enabled:hover:bg-hov enabled:hover:text-fg",
@@ -181,7 +265,7 @@ const btnVariants: Record<Variant, string> = {
 // variants; the disabled states they guard against cannot happen on a link.
 const btnLinkVariants: Record<Variant, string> = {
   default: "border border-line bg-panel text-fg elev-1 hover:bg-hov",
-  primary: "bg-accent text-accent-fg font-semibold elev-1 hover:bg-accent-hi",
+  primary: "bg-accent text-accent-fg dark:text-bg font-semibold elev-1 hover:bg-accent-hi",
   danger: "border border-danger/25 bg-danger-soft text-danger-ink hover:border-danger/40",
   "danger-solid": "bg-danger text-white font-semibold elev-1 hover:bg-danger-ink",
   ghost: "text-dim hover:bg-hov hover:text-fg",
@@ -242,12 +326,11 @@ export function IconBtn({
   );
 }
 
-
 // Shared text-input styling: an inset fill + 1px border so fields read as
 // editable against the panel, not flush with it.
 const inputCls =
   "min-h-[40px] w-full rounded-lg border border-line bg-inset px-3.5 text-sm text-fg " +
-  "placeholder:text-faint focus:border-accent/50 focus:outline-2 focus:outline-accent/50";
+  "placeholder:text-dim focus:border-accent/50 focus:outline-2 focus:outline-accent/50";
 
 export function Input({
   className = "",
@@ -255,6 +338,13 @@ export function Input({
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
   return <input ref={ref} className={`${inputCls} ${className}`} {...props} />;
+}
+
+export function Textarea({
+  className = "",
+  ...props
+}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={`${inputCls} py-2.5 ${className}`} {...props} />;
 }
 
 export function SearchInput({
@@ -279,7 +369,7 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
-        className="min-h-[38px] w-full rounded-lg border border-line bg-inset pr-9 pl-9 text-sm text-fg placeholder:text-faint focus:border-accent/50 focus:outline-2 focus:outline-accent/50"
+        className="min-h-[38px] w-full rounded-lg border border-line bg-inset pr-9 pl-9 text-sm text-fg placeholder:text-dim focus:border-accent/50 focus:outline-2 focus:outline-accent/50"
       />
       {value && (
         <button
@@ -298,12 +388,14 @@ export function SearchInput({
 export function Checkbox({
   checked,
   indeterminate = false,
+  disabled = false,
   onChange,
   ariaLabel,
   className = "",
 }: {
   checked: boolean;
   indeterminate?: boolean;
+  disabled?: boolean;
   onChange: () => void;
   ariaLabel: string;
   className?: string;
@@ -312,10 +404,11 @@ export function Checkbox({
     <span className={`relative inline-flex shrink-0 ${className}`}>
       <input
         type="checkbox"
+        disabled={disabled}
         checked={checked}
         onChange={onChange}
         aria-label={ariaLabel}
-        className={`peer h-[19px] w-[19px] cursor-pointer appearance-none rounded-[6px] border border-ctrl-hi bg-panel transition-colors checked:border-accent checked:bg-accent hover:border-faint ${focusRing}`}
+        className={`peer h-[19px] w-[19px] disabled:cursor-default disabled:opacity-50 cursor-pointer appearance-none rounded-[6px] border border-ctrl-hi bg-panel transition-colors checked:border-accent checked:bg-accent hover:border-faint ${focusRing}`}
       />
       {indeterminate && !checked ? (
         <span className="pointer-events-none absolute top-[8px] left-[4px] h-[3px] w-[11px] rounded-full bg-faint" />
@@ -388,8 +481,25 @@ export function Segmented<T extends string>({
         return (
           <button
             key={o.value}
+            type="button"
             role="tab"
             aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            onKeyDown={(e) => {
+              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+              e.preventDefault();
+              const index = options.findIndex((option) => option.value === o.value);
+              const next =
+                e.key === "Home"
+                  ? 0
+                  : e.key === "End"
+                    ? options.length - 1
+                    : (index + (e.key === "ArrowRight" ? 1 : -1) + options.length) % options.length;
+              onChange(options[next].value);
+              e.currentTarget.parentElement
+                ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+                [next]?.focus();
+            }}
             onClick={() => onChange(o.value)}
             className={`inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${focusRing} ${
               active ? "bg-panel text-fg elev-1" : "text-dim hover:text-fg"
@@ -412,7 +522,6 @@ export function Segmented<T extends string>({
   );
 }
 
-
 // Modal: centered panel over a scrim, closes on Escape / backdrop click.
 export function Modal({
   title,
@@ -420,6 +529,8 @@ export function Modal({
   icon,
   size = "md",
   onClose,
+  footer,
+  closeLabel = "Close",
   children,
 }: {
   title: string;
@@ -427,17 +538,64 @@ export function Modal({
   icon?: ReactNode;
   size?: "sm" | "md" | "lg";
   onClose: () => void;
+  footer?: ReactNode;
+  closeLabel?: string;
   children: ReactNode;
 }) {
   const backdropPointer = useRef<number | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const modalId = useId();
+  const trigger = useRef(document.activeElement as HTMLElement | null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
+    const panel = panelRef.current!;
+    const topmost = () => {
+      const panels = document.querySelectorAll("[data-modal-id]");
+      return panels[panels.length - 1] === panel;
+    };
+    const owns = (el: Element | null) =>
+      !!el &&
+      (panel.contains(el) ||
+        el.closest("[data-modal-owner]")?.getAttribute("data-modal-owner") === modalId);
+    const focusFirst = () => (visibleControls(panel)[0] ?? panel).focus();
+    if (!owns(document.activeElement)) focusFirst();
+    const onFocus = (e: FocusEvent) => {
+      if (topmost() && !owns(e.target as Element)) focusFirst();
+    };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (!topmost() || e.defaultPrevented) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeRef.current();
+      } else if (e.key === "Tab") {
+        const controls = visibleControls(panel);
+        const first = controls[0],
+          last = controls[controls.length - 1];
+        if (!first) {
+          e.preventDefault();
+          panel.focus();
+        } else if (
+          e.shiftKey &&
+          (document.activeElement === first || document.activeElement === panel)
+        ) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    document.addEventListener("focusin", onFocus);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("focusin", onFocus);
+      if (trigger.current?.isConnected) trigger.current.focus();
+    };
+  }, [modalId]);
   const maxW = size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-lg" : "max-w-md";
   return (
     <div
@@ -455,6 +613,9 @@ export function Modal({
       }}
     >
       <div
+        ref={panelRef}
+        data-modal-id={modalId}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -470,13 +631,14 @@ export function Modal({
             size="sm"
             variant="ghost-raised"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={closeLabel}
             className="-mt-1 -mr-1.5"
           >
             <XIcon size={16} />
           </IconBtn>
         </div>
         <div className="min-h-0 overflow-y-auto px-5 pt-4 pb-5">{children}</div>
+        {footer && <div className="shrink-0 border-t border-line-soft px-5 py-4">{footer}</div>}
       </div>
     </div>
   );
@@ -532,14 +694,30 @@ export function SplitButton({
         aria-expanded={menu.open}
         aria-label={menuAriaLabel}
         disabled={disabled}
-        onClick={() => menu.setOpen((o) => !o)}
+        onClick={() => (menu.open ? menu.close() : menu.openMenu())}
+        onKeyDown={(e) => {
+          if (
+            e.key === "ArrowDown" ||
+            e.key === "ArrowUp" ||
+            (menu.open && (e.key === "Home" || e.key === "End"))
+          ) {
+            e.preventDefault();
+            menu.openMenu(e.key === "ArrowUp" || e.key === "End");
+          }
+        }}
         className={`${btnBase} ${btnSizes.md} ${btnVariants[variant]} rounded-l-none border-l border-black/15 px-2`}
       >
         <ChevronDownIcon size={15} aria-hidden />
       </button>
       {menu.open &&
         createPortal(
-          <div ref={menu.menuRef} style={menu.style} role="menu" className={menuCls}>
+          <div
+            data-modal-owner={menu.modalId}
+            ref={menu.menuRef}
+            style={menu.style}
+            role="menu"
+            className={menuCls}
+          >
             {children(menu.close)}
           </div>,
           document.body,
@@ -557,6 +735,7 @@ export function Dropdown({
   variant = "default",
   size = "md",
   chevron = true,
+  disabled = false,
   className = "",
   children,
 }: {
@@ -566,6 +745,7 @@ export function Dropdown({
   variant?: Variant;
   size?: Size;
   chevron?: boolean;
+  disabled?: boolean;
   className?: string;
   children: (close: () => void) => ReactNode;
 }) {
@@ -574,10 +754,22 @@ export function Dropdown({
   return (
     <div ref={menu.anchorRef} className={className}>
       <button
+        type="button"
+        disabled={disabled}
         aria-haspopup="menu"
         aria-expanded={menu.open}
         aria-label={ariaLabel}
-        onClick={() => menu.setOpen(!menu.open)}
+        onClick={() => (menu.open ? menu.close() : menu.openMenu())}
+        onKeyDown={(e) => {
+          if (
+            e.key === "ArrowDown" ||
+            e.key === "ArrowUp" ||
+            (menu.open && (e.key === "Home" || e.key === "End"))
+          ) {
+            e.preventDefault();
+            menu.openMenu(e.key === "ArrowUp" || e.key === "End");
+          }
+        }}
         className={`${btnBase} ${chevron ? btnSizes[size] : iconSizes[size]} ${btnVariants[variant]}`}
       >
         {button}
@@ -585,7 +777,13 @@ export function Dropdown({
       </button>
       {menu.open &&
         createPortal(
-          <div ref={menu.menuRef} style={menu.style} role="menu" className={menuCls}>
+          <div
+            data-modal-owner={menu.modalId}
+            ref={menu.menuRef}
+            style={menu.style}
+            role="menu"
+            className={menuCls}
+          >
             {children(menu.close)}
           </div>,
           document.body,
@@ -634,6 +832,8 @@ export function Combobox({
   placeholder,
   className = "",
   search,
+  emptyLabel = "—",
+  disabled = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -642,7 +842,10 @@ export function Combobox({
   placeholder?: string;
   className?: string;
   search?: boolean;
+  emptyLabel?: string;
+  disabled?: boolean;
 }) {
+  const listId = useId();
   const showSearch = search ?? options.length > 8;
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -651,22 +854,61 @@ export function Combobox({
   const selected = options.find((o) => o.value === value);
   const q = query.trim().toLowerCase();
   const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
+  const focusTarget = useRef<"selected" | "first" | "last">("selected");
+  const focusOption = (which: "selected" | "first" | "last") => {
+    const buttons = menu.menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+    if (!buttons?.length) return;
+    const index =
+      which === "last"
+        ? buttons.length - 1
+        : which === "first"
+          ? 0
+          : Math.max(
+              0,
+              filtered.findIndex((o) => o.value === value),
+            );
+    buttons[index]?.focus();
+  };
+  useLayoutEffect(() => {
+    if (!menu.open || menu.style.visibility === "hidden") return;
+    if (showSearch) inputRef.current?.focus();
+    else focusOption(focusTarget.current);
+    // Focus once after placement, before the next keyboard event.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menu.open, menu.style.visibility]);
 
   return (
     <div ref={menu.anchorRef} className={className}>
       <button
         type="button"
+        role="combobox"
+        disabled={disabled}
+        aria-controls={menu.open ? listId : undefined}
         aria-haspopup="listbox"
         aria-expanded={menu.open}
         aria-label={ariaLabel}
         onClick={() => {
           menu.setOpen((o) => !o);
           setQuery("");
-          if (showSearch) requestAnimationFrame(() => inputRef.current?.focus());
+          focusTarget.current = "selected";
         }}
-        className={`flex min-h-[40px] w-full cursor-pointer items-center gap-2 rounded-lg border border-line bg-inset py-1.5 pr-2.5 pl-3.5 text-sm text-fg transition-colors hover:border-ctrl-hi ${focusRing}`}
+        onKeyDown={(e) => {
+          if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+            e.preventDefault();
+            setQuery("");
+            focusTarget.current =
+              e.key === "End" || e.key === "ArrowUp"
+                ? "last"
+                : e.key === "Home"
+                  ? "first"
+                  : "selected";
+            if (menu.open) focusOption(focusTarget.current);
+            else menu.setOpen(true);
+          }
+        }}
+        className={`flex min-h-[40px] w-full cursor-pointer items-center gap-2 rounded-lg border border-line bg-inset py-1.5 pr-2.5 pl-3.5 text-sm text-fg transition-colors hover:border-ctrl-hi disabled:cursor-default disabled:opacity-50 ${focusRing}`}
       >
-        <span className={`min-w-0 flex-1 truncate text-left ${selected ? "" : "text-faint"}`}>
+        <span className={`min-w-0 flex-1 truncate text-left ${selected ? "" : "text-dim"}`}>
           {selected?.label ?? placeholder}
         </span>
         <ChevronDownIcon size={15} className="shrink-0 text-faint" aria-hidden />
@@ -674,6 +916,7 @@ export function Combobox({
       {menu.open &&
         createPortal(
           <div
+            data-modal-owner={menu.modalId}
             ref={menu.menuRef}
             style={menu.style}
             className="anim-pop fixed z-[75] min-w-[220px] max-w-[calc(100vw-16px)] rounded-xl border border-line bg-raise p-1.5 elev-pop"
@@ -687,23 +930,54 @@ export function Combobox({
                 <input
                   ref={inputRef}
                   value={query}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      focusOption("first");
+                    }
+                  }}
                   onChange={(e) => setQuery(e.target.value)}
                   aria-label={ariaLabel}
                   className="w-full rounded-lg border border-line bg-inset py-2 pr-2.5 pl-8 text-[13px] focus:outline-2 focus:outline-accent/50"
                 />
               </div>
             )}
-            <div className="max-h-72 overflow-auto">
+            <div
+              id={listId}
+              role="listbox"
+              aria-label={ariaLabel}
+              className="max-h-72 overflow-auto"
+              onKeyDown={(e) => {
+                if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+                e.preventDefault();
+                const buttons = Array.from(
+                  e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'),
+                );
+                const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+                const next =
+                  e.key === "Home"
+                    ? 0
+                    : e.key === "End"
+                      ? buttons.length - 1
+                      : (index + (e.key === "ArrowDown" ? 1 : -1) + buttons.length) %
+                        buttons.length;
+                buttons[next]?.focus();
+              }}
+            >
               {filtered.length === 0 ? (
-                <div className="px-3 py-2.5 text-[13px] text-faint">—</div>
+                <div className="px-3 py-2.5 text-[13px] text-dim">{emptyLabel}</div>
               ) : (
                 filtered.map((o) => (
                   <button
                     key={o.value}
+                    role="option"
+                    aria-selected={o.value === value}
+                    tabIndex={-1}
                     type="button"
                     onClick={() => {
                       onChange(o.value);
                       menu.close();
+                      menu.anchorRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
                     }}
                     className={`flex min-h-[36px] w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-[13px] hover:bg-hov-raise ${
                       o.value === value ? "font-medium text-accent-ink" : ""
@@ -722,7 +996,6 @@ export function Combobox({
     </div>
   );
 }
-
 
 type Tone = "neutral" | "accent" | "ok" | "warn" | "danger";
 
@@ -953,7 +1226,13 @@ export function Pagination({
   );
 }
 
-export function Avatar({ name, className = "h-8 w-8 text-[12px]" }: { name: string; className?: string }) {
+export function Avatar({
+  name,
+  className = "h-8 w-8 text-[12px]",
+}: {
+  name: string;
+  className?: string;
+}) {
   const parts = name.split(/[\s._-]+/).filter(Boolean);
   const text =
     parts.length === 0

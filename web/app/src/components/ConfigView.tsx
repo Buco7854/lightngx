@@ -468,7 +468,13 @@ export default function ConfigView({
             <div className="flex min-h-0 flex-1 flex-col min-[900px]:flex-row-reverse">
               <EditorRail>
                 <RailSection label={t.tags}>
-                  <FileTagsButton path={file.path} onChanged={refresh} disabled={file.readOnly || file.loading} />
+                  <FileTagsButton
+                    key={file.path}
+                    revision={file.revision}
+                    path={file.path}
+                    onChanged={refresh}
+                    disabled={file.readOnly || file.loading}
+                  />
                 </RailSection>
                 <RailSection label={t.actions}>
                   <Btn

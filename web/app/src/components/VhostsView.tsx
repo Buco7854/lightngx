@@ -722,7 +722,13 @@ function VhostEditor({
           )}
 
           <RailSection label={t.tags}>
-            <FileTagsButton path={sourcePath} onChanged={refresh} disabled={file.loading} />
+            <FileTagsButton
+              key={sourcePath}
+              revision={file.revision}
+              path={sourcePath}
+              onChanged={refresh}
+              disabled={file.loading}
+            />
           </RailSection>
 
           <RailSection label={t.actions}>
