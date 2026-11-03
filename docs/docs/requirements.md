@@ -60,7 +60,7 @@ on `localhost` only, and a stable hostname rather than a bare IP address.
 
 Only needed if you build the binary yourself instead of pulling an image:
 
-- Go 1.25 or newer
+- Go 1.27.3 or newer
 - Node.js 22 or newer (to build the embedded frontend once)
 
 See [Running without Docker](./without-docker.md) for the steps.

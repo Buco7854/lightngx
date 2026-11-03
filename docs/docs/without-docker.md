@@ -21,7 +21,7 @@ init system and the distro's logrotate keep those jobs.
 ## Build the binary
 
 There are no prebuilt release binaries yet, so build from source. You need
-Go 1.25+ and Node 22+ once, on any machine (cross-compiling for another
+Go 1.27.3+ and Node 22.15+ once, on any machine (cross-compiling for another
 architecture works, e.g. `GOARCH=arm64`):
 
 ```sh
