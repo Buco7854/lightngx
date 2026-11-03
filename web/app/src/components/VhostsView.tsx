@@ -36,6 +36,7 @@ import {
   Switch,
   Toolbar,
 } from "../ui";
+import { FileTagsButton, TagBadges, TagFilters, useTagFilter, useTags } from "./Tags";
 import SaveButton from "./SaveButton";
 import CodeEditor from "./CodeEditor";
 import { EditorRail, EditorStatus, RailSection, RailToggle } from "./EditorShell";
@@ -124,6 +125,8 @@ export default function VhostsView({
   const setEditing = (name: string | null) => setQuery({ edit: name });
   const setFilter = (q: string) => setQuery({ q }, { replace: true });
   const setTab = (v: Tab) => setQuery({ state: v === "all" ? null : v });
+  const tagData = useTags();
+  const tagFilter = useTagFilter();
   const [sites, setSites] = useState<Site[] | null>(null);
   const [maintenanceOK, setMaintenanceOK] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -194,6 +197,7 @@ export default function VhostsView({
     if (!sites) return [];
     const q = filter.trim().toLowerCase();
     return sites.filter((s) => {
+      if (!tagFilter.matches(s.tags)) return false;
       if (tab !== "all" && stateOf(s) !== tab) return false;
       if (!q) return true;
       return (
@@ -201,7 +205,17 @@ export default function VhostsView({
         (s.domains ?? []).some((d) => d.toLowerCase().includes(q))
       );
     });
-  }, [sites, filter, tab]);
+  }, [sites, filter, tab, tagFilter.key]);
+
+  // Rule edits and refreshed file contents may remove rows from the current
+  // result without changing the URL. Never retain a hidden bulk selection.
+  useEffect(() => {
+    const visible = new Set(filtered.map(s => s.name));
+    setSelected(previous => {
+      const next = new Set([...previous].filter(name => visible.has(name)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [filtered]);
 
   // Selection and the header count stay on the whole filtered set; only the
   // rendered rows are paged.
@@ -209,7 +223,9 @@ export default function VhostsView({
   const current = Math.min(page, pages);
   const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
-  useEffect(() => setPage(1), [filter, tab, kind]);
+  useEffect(() => setPage(1), [filter, tab, kind, tagFilter.key]);
+
+  useEffect(() => setSelected(new Set()), [filter, tab, kind, tagFilter.key]);
 
   async function create() {
     const name = await askName({
@@ -250,6 +266,8 @@ export default function VhostsView({
       if (err instanceof ApiError && err.output) output(t.output, err.output);
     }
   }
+
+  if (editing !== null && sites === null) return <Loading />;
 
   if (editing !== null) {
     const site = sites?.find((s) => s.name === editing) ?? null;
@@ -332,6 +350,8 @@ export default function VhostsView({
         </div>
       </Toolbar>
 
+      <TagFilters tags={tagData.tags} error={tagData.error} onChanged={() => { tagData.refresh(); refresh(); }} />
+
       {selected.size > 0 && (
         <div className="anim-slide-up flex flex-wrap items-center gap-2 border-b border-line bg-accent-soft px-3 py-2.5 min-[761px]:px-5">
           <span className="text-[13px] font-semibold text-accent-ink">
@@ -386,7 +406,7 @@ export default function VhostsView({
                 onChange={toggleAll}
                 ariaLabel={t.selectAll}
               />
-              <span className="text-[12px] font-medium tracking-wide text-faint uppercase">
+              <span aria-live="polite" className="text-[12px] font-medium tracking-wide text-faint uppercase">
                 {t.itemsCount(filtered.length)}
               </span>
               <span className="ml-auto flex items-center gap-4 max-[760px]:hidden">
@@ -444,6 +464,7 @@ export default function VhostsView({
                         </Badge>
                       </div>
                       <DomainList domains={s.domains} />
+                      <TagBadges ids={s.tags} tags={tagData.tags} />
                     </div>
 
                     <div className="relative z-10 flex shrink-0 items-center gap-3 min-[761px]:gap-4">
@@ -581,10 +602,11 @@ function VhostEditor({
   const file = useFileEditor(onAuthLost);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
 
+  const sourcePath = site?.path ?? `${kind}-available/${name}`;
   useEffect(() => {
-    void file.open(`${kind}-available/${name}`);
+    void file.open(sourcePath);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, name]);
+  }, [sourcePath]);
 
   async function back() {
     if (await file.confirmDiscard()) onBack();
@@ -651,7 +673,7 @@ function VhostEditor({
             {file.dirty && <Badge tone="warn">{t.unsaved}</Badge>}
           </div>
           <span className="truncate font-mono text-[11.5px] text-faint max-[520px]:hidden">
-            {kind}-available/{name}
+            {sourcePath}
           </span>
         </div>
         <SaveButton
@@ -698,6 +720,10 @@ function VhostEditor({
               </div>
             </RailSection>
           )}
+
+          <RailSection label={t.tags}>
+            <FileTagsButton path={sourcePath} onChanged={refresh} disabled={file.loading} />
+          </RailSection>
 
           <RailSection label={t.actions}>
             <Btn className="justify-start max-[899px]:justify-center" onClick={rename}>

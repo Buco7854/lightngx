@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ type Dir struct {
 }
 
 type Entry struct {
+	Tags     []int64 `json:"tags,omitempty"`
 	Name     string  `json:"name"`
 	Path     string  `json:"path"`
 	IsDir    bool    `json:"isDir"`
@@ -155,15 +157,23 @@ func (d *Dir) Read(rel string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if info.IsDir() {
-		return nil, errors.New("is a directory")
+	if !info.Mode().IsRegular() {
+		return nil, errors.New("not a regular file")
 	}
 	if info.Size() > d.maxSize {
 		return nil, ErrTooLarge
 	}
-	b, err := os.ReadFile(abs)
+	f, err := os.Open(abs)
 	if err != nil {
 		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, d.maxSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > d.maxSize {
+		return nil, ErrTooLarge
 	}
 	if bytes.IndexByte(b, 0) != -1 {
 		return nil, ErrBinary
@@ -430,3 +440,30 @@ func restoreTree(root string, nodes []snapNode) error {
 	fsown.ChownTree(root)
 	return nil
 }
+
+// FileInfo resolves a regular file to a canonical, root-relative metadata key.
+// Internal aliases share manual tags; escaping links and special files cannot
+// be inspected by the smart-tag scanner.
+func (d *Dir) FileInfo(rel string) (string, os.FileInfo, error) {
+	abs, err := d.resolve(rel)
+	if err != nil {
+		return "", nil, err
+	}
+	abs, err = filepath.EvalSymlinks(abs)
+	if err != nil {
+		return "", nil, err
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return "", nil, errors.New("not a regular file")
+	}
+	key, err := filepath.Rel(d.root, abs)
+	return filepath.ToSlash(key), info, err
+}
+
+// EntryPath validates a path for metadata lifecycle operations without following
+// the final symlink. Actual filesystem access still goes through Dir methods.
+func (d *Dir) EntryPath(rel string) (string, error) { return d.resolve(rel) }

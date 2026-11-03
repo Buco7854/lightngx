@@ -1,13 +1,13 @@
 module github.com/Buco7854/lightngx
 
-go 1.25.0
+go 1.27.3
 
 require (
 	github.com/coreos/go-oidc/v3 v3.19.0
 	github.com/go-webauthn/webauthn v0.17.4
-	golang.org/x/crypto v0.53.0
+	golang.org/x/crypto v0.58.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/term v0.44.0
+	golang.org/x/term v0.47.0
 	modernc.org/sqlite v1.53.0
 )
 
@@ -26,7 +26,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	modernc.org/libc v1.73.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

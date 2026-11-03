@@ -24,6 +24,7 @@ import (
 	"github.com/Buco7854/lightngx/internal/nginxctl"
 	"github.com/Buco7854/lightngx/internal/sites"
 	"github.com/Buco7854/lightngx/internal/store"
+	"github.com/Buco7854/lightngx/internal/tags"
 	"github.com/Buco7854/lightngx/internal/webauthnx"
 )
 
@@ -45,6 +46,8 @@ type Server struct {
 	// rollback, so concurrent saves cannot fail on each other's in-flight
 	// changes or roll back content another request just committed.
 	mutate sync.Mutex
+
+	tags tags.Engine
 
 	logStreams atomic.Int32 // active SSE log streams (capped)
 }
@@ -124,6 +127,12 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("GET /api/account/sessions", s.handleListSessions)
 	api.HandleFunc("DELETE /api/account/sessions/{sid}", s.handleRevokeSession)
 	api.HandleFunc("GET /api/app-config", s.handleAppConfig)
+	api.HandleFunc("GET /api/tags", s.handleTags)
+	api.HandleFunc("POST /api/tags", s.handleTags)
+	api.HandleFunc("PUT /api/tags/{id}", s.handleTags)
+	api.HandleFunc("DELETE /api/tags/{id}", s.handleTags)
+	api.HandleFunc("GET /api/config/tags", s.handleFileTags)
+	api.HandleFunc("PUT /api/config/tags", s.handleFileTags)
 	api.HandleFunc("GET /api/config/tree", s.handleTree)
 	api.HandleFunc("GET /api/config/file", s.handleReadFile)
 	api.HandleFunc("PUT /api/config/file", s.handleWriteFile)
@@ -365,11 +374,19 @@ func (s *Server) handleAppConfig(w http.ResponseWriter, r *http.Request) {
 // ---- config files ----
 
 func (s *Server) handleTree(w http.ResponseWriter, r *http.Request) {
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
 	tree, err := s.conf.Tree()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
+	snap, err := s.tags.Snapshot(s.accounts.Store())
+	if err != nil {
+		tagError(w, err)
+		return
+	}
+	decorateTree(&tree, snap, s.conf)
 	writeJSON(w, http.StatusOK, map[string]any{"root": s.conf.Root(), "tree": tree})
 }
 
@@ -464,6 +481,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Query().Get("path")
 	s.mutate.Lock()
 	defer s.mutate.Unlock()
+	metadataPath := s.metadataPath(path)
 	restore, err := s.conf.Delete(path)
 	if err != nil {
 		writeJSON(w, statusFor(err), map[string]string{"error": err.Error()})
@@ -482,6 +500,9 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 			"error": "nginx config test failed, deletion rolled back", "output": out})
 		return
 	}
+	if !s.metadataChange(w, func() error { return s.accounts.Store().DeleteFileTags(metadataPath) }, restore) {
+		return
+	}
 	s.audit(r, "config.delete", "path", path)
 	resp := map[string]any{"status": "deleted", "output": out}
 	s.applyReload(r, "config.delete", resp, s.cfg.DefaultReloadOnSave)
@@ -498,6 +519,7 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mutate.Lock()
 	defer s.mutate.Unlock()
+	fromPath, toPath := s.metadataPath(req.From), s.metadataPath(req.To)
 	restore, err := s.conf.Rename(req.From, req.To)
 	if err != nil {
 		writeJSON(w, statusFor(err), map[string]string{"error": err.Error()})
@@ -514,6 +536,9 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request) {
 		s.audit(r, "config.rename.rejected", "from", req.From, "to", req.To)
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
 			"error": "nginx config test failed, rename rolled back", "output": out})
+		return
+	}
+	if !s.metadataChange(w, func() error { return s.accounts.Store().MoveFileTags(fromPath, toPath, false) }, restore) {
 		return
 	}
 	s.audit(r, "config.rename", "from", req.From, "to", req.To)

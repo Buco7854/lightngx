@@ -22,7 +22,7 @@ const sidebars = {
       type: "category",
       label: "Guide",
       collapsible: false,
-      items: ["editor", "sites", "accounts", "api-keys"],
+      items: ["editor", "sites", "tags", "accounts", "api-keys"],
     },
     {
       type: "category",

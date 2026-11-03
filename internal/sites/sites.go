@@ -32,6 +32,8 @@ type Manager struct {
 }
 
 type Site struct {
+	Path        string   `json:"path,omitempty"`
+	Tags        []int64  `json:"tags,omitempty"`
 	Name        string   `json:"name"`
 	Enabled     bool     `json:"enabled"`
 	Maintenance bool     `json:"maintenance"`

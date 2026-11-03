@@ -35,6 +35,10 @@ jobs:
           cache-dependency-path: docs/package-lock.json
       - run: npm ci
         working-directory: docs
+      # Upstream minimatch/deepmerge advisories remain in the docs toolchain;
+      # see docs/docs/development.md. New high/critical findings block builds.
+      - run: npm audit --audit-level=high
+        working-directory: docs
       - run: npm run build
         working-directory: docs
       - uses: actions/upload-pages-artifact@v3

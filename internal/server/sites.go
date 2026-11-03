@@ -3,6 +3,8 @@ package server
 import (
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/Buco7854/lightngx/internal/sites"
 )
@@ -21,6 +23,8 @@ func (s *Server) vhostKind(kind string) (mgr *sites.Manager, maintenance bool) {
 }
 
 func (s *Server) handleVhostList(w http.ResponseWriter, r *http.Request) {
+	s.mutate.Lock()
+	defer s.mutate.Unlock()
 	mgr, maintenance := s.vhostKind(r.PathValue("kind"))
 	resp := map[string]any{
 		"available":   mgr != nil && mgr.Ready(),
@@ -32,6 +36,15 @@ func (s *Server) handleVhostList(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
+		}
+		snap, err := s.tags.Snapshot(s.accounts.Store())
+		if err != nil {
+			tagError(w, err)
+			return
+		}
+		for i := range list {
+			list[i].Path = s.vhostPath(r.PathValue("kind"), list[i].Name)
+			list[i].Tags = snap.Match(s.conf, list[i].Path)
 		}
 		if list != nil {
 			resp["sites"] = list
@@ -124,6 +137,20 @@ func (s *Server) handleVhostAction(w http.ResponseWriter, r *http.Request) {
 			"error": "nginx config test failed, change rolled back", "output": out})
 		return
 	}
+	if req.Action == "delete" {
+		paths := make([]string, len(names))
+		for i, name := range names {
+			paths[i] = s.metadataPath(s.vhostPath(r.PathValue("kind"), name))
+		}
+		if !s.metadataChange(w, func() error { return s.accounts.Store().DeleteFileTagsBatch(paths) }, func() error {
+			if !rollback() {
+				return errors.New("rollback failed")
+			}
+			return nil
+		}) {
+			return
+		}
+	}
 	if cleanup {
 		for _, name := range names {
 			mgr.Cleanup(name)
@@ -155,6 +182,7 @@ func (s *Server) handleVhostRename(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mutate.Lock()
 	defer s.mutate.Unlock()
+	fromPath, toPath := s.metadataPath(s.vhostPath(r.PathValue("kind"), req.Name)), s.metadataPath(s.vhostPath(r.PathValue("kind"), req.NewName))
 	restore, err := mgr.Rename(req.Name, req.NewName)
 	if err != nil {
 		writeJSON(w, siteStatusFor(err), map[string]string{"error": err.Error()})
@@ -169,6 +197,9 @@ func (s *Server) handleVhostRename(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
 			"error": "nginx config test failed, rename rolled back", "output": out})
+		return
+	}
+	if !s.metadataChange(w, func() error { return s.accounts.Store().MoveFileTags(fromPath, toPath, false) }, restore) {
 		return
 	}
 	if _, err := s.nginx.Reload(r.Context()); err != nil {
@@ -197,8 +228,17 @@ func (s *Server) handleVhostClone(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mutate.Lock()
 	defer s.mutate.Unlock()
+	fromPath := s.metadataPath(s.vhostPath(r.PathValue("kind"), req.Name))
+	if key, _, err := s.conf.FileInfo(fromPath); err == nil {
+		fromPath = key
+	}
 	if err := mgr.Clone(req.Name, req.NewName); err != nil {
 		writeJSON(w, siteStatusFor(err), map[string]string{"error": err.Error()})
+		return
+	}
+
+	toPath := s.vhostPath(r.PathValue("kind"), req.NewName)
+	if !s.metadataChange(w, func() error { return s.accounts.Store().MoveFileTags(fromPath, toPath, true) }, func() error { return os.Remove(filepath.Join(s.conf.Root(), toPath)) }) {
 		return
 	}
 	s.audit(r, "vhost.cloned", "from", req.Name, "to", req.NewName)

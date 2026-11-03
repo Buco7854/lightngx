@@ -35,7 +35,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
+export interface TagRule {
+  field: "path" | "content";
+  op: "contains" | "regex";
+  value: string;
+  ignoreCase: boolean;
+}
+export interface Tag {
+  id: number;
+  name: string;
+  mode: "all" | "any";
+  rules: TagRule[];
+}
+
 export interface TreeEntry {
+  tags?: number[];
   name: string;
   path: string;
   isDir: boolean;
@@ -74,6 +88,8 @@ export interface ActionResult {
 }
 
 export interface Site {
+  path?: string;
+  tags?: number[];
   name: string;
   enabled: boolean;
   maintenance: boolean;
@@ -253,6 +269,12 @@ export const api = {
       body: JSON.stringify({ name, scopes }),
     }),
   deleteApiKey: (id: number) => request(`/api/admin/api-keys/${id}`, { method: "DELETE" }),
+
+  tags: () => request<{ tags: Tag[] }>("/api/tags"),
+  saveTag: (tag: Omit<Tag, "id">, id?: number) => request<Tag>(id ? `/api/tags/${id}` : "/api/tags", { method: id ? "PUT" : "POST", body: JSON.stringify(tag) }),
+  deleteTag: (id: number) => request(`/api/tags/${id}`, { method: "DELETE" }),
+  fileTags: (path: string) => request<{ manual: number[]; tags: number[]; automatic: number[] }>(`/api/config/tags?path=${encodeURIComponent(path)}`),
+  setFileTags: (path: string, tags: number[]) => request(`/api/config/tags?path=${encodeURIComponent(path)}`, { method: "PUT", body: JSON.stringify({ tags }) }),
 
   tree: () => request<{ root: string; tree: TreeEntry }>("/api/config/tree"),
   readFile: (path: string) =>

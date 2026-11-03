@@ -30,6 +30,7 @@ import {
   SearchInput,
   Toolbar,
 } from "../ui";
+import { FileTagsButton, TagBadges, TagFilters, useTagFilter, useTags } from "./Tags";
 import SaveButton from "./SaveButton";
 import CodeEditor from "./CodeEditor";
 import { EditorRail, EditorStatus, RailSection } from "./EditorShell";
@@ -178,6 +179,8 @@ export default function ConfigView({
   const fileParam = loc.searchParams.get("file");
   const filter = loc.searchParams.get("q") ?? "";
   const setFilter = (q: string) => setQuery({ q }, { replace: true });
+  const tagData = useTags();
+  const tagFilter = useTagFilter();
   const [tree, setTree] = useState<TreeEntry | null>(null);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
   const [page, setPage] = useState(1);
@@ -200,15 +203,20 @@ export default function ConfigView({
     const list = dir?.children ?? [];
     const q = filter.trim().toLowerCase();
     return [...list]
-      .filter((e) => !q || e.name.toLowerCase().includes(q))
+      .filter((e) => {
+        const match = (entry: TreeEntry): boolean => entry.isDir
+          ? (entry.children ?? []).some(match)
+          : tagFilter.matches(entry.tags);
+        return (!q || e.name.toLowerCase().includes(q)) && (!tagFilter.active || match(e));
+      })
       .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1));
-  }, [dir, filter]);
+  }, [dir, filter, tagFilter.key]);
 
   const pages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
   const current = Math.min(page, pages);
   const shown = entries.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
-  useEffect(() => setPage(1), [cwd, filter]);
+  useEffect(() => setPage(1), [cwd, filter, tagFilter.key]);
 
   // Restore a deep-linked open file (?file=) once the tree is available.
   useEffect(() => {
@@ -459,6 +467,9 @@ export default function ConfigView({
             </Toolbar>
             <div className="flex min-h-0 flex-1 flex-col min-[900px]:flex-row-reverse">
               <EditorRail>
+                <RailSection label={t.tags}>
+                  <FileTagsButton path={file.path} onChanged={refresh} disabled={file.readOnly || file.loading} />
+                </RailSection>
                 <RailSection label={t.actions}>
                   <Btn
                     className="justify-start max-[899px]:justify-center"
@@ -511,11 +522,13 @@ export default function ConfigView({
                 <PlusIcon size={17} /> <span className="max-[900px]:hidden">{t.newFile}</span>
               </Btn>
             </Toolbar>
+            <TagFilters tags={tagData.tags} error={tagData.error} onChanged={() => { tagData.refresh(); refresh(); }} />
+            <span role="status" className="sr-only">{t.itemsCount(entries.length)}</span>
             <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3 min-[761px]:p-5">
               {!tree ? (
                 <Loading />
               ) : entries.length === 0 ? (
-                filter ? (
+                filter || tagFilter.active ? (
                   <EmptyState
                     icon={<FolderIcon size={26} />}
                     title={t.noMatches}
@@ -559,6 +572,7 @@ export default function ConfigView({
                           </span>
                           <span className="flex min-w-0 flex-1 flex-col">
                             <span className="truncate text-sm font-medium">{e.name}</span>
+                            <TagBadges ids={e.tags} tags={tagData.tags} />
                             {e.symlink && (
                               <span className="truncate font-mono text-[11.5px] text-faint">
                                 → {e.symlink}
