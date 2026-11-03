@@ -125,6 +125,20 @@ CREATE TABLE IF NOT EXISTS file_tags (
     PRIMARY KEY(path, tag_id)
 );
 CREATE INDEX IF NOT EXISTS idx_file_tags_tag ON file_tags(tag_id);
+-- Older versions allowed smart tags to be pinned manually. They now derive
+-- exclusively from rules, including after a restart or a manual-to-smart edit.
+DELETE FROM file_tags WHERE tag_id IN (SELECT id FROM tags WHERE json_array_length(rules) > 0);
+CREATE TRIGGER IF NOT EXISTS file_tags_manual_only_insert
+BEFORE INSERT ON file_tags
+WHEN EXISTS (SELECT 1 FROM tags WHERE id = NEW.tag_id AND json_array_length(rules) > 0)
+BEGIN SELECT RAISE(ABORT, 'automatic tags cannot be assigned manually'); END;
+CREATE TRIGGER IF NOT EXISTS file_tags_manual_only_update
+BEFORE UPDATE OF tag_id ON file_tags
+WHEN EXISTS (SELECT 1 FROM tags WHERE id = NEW.tag_id AND json_array_length(rules) > 0)
+BEGIN SELECT RAISE(ABORT, 'automatic tags cannot be assigned manually'); END;
+CREATE TRIGGER IF NOT EXISTS tags_clear_manual_assignments
+AFTER UPDATE OF rules ON tags WHEN json_array_length(NEW.rules) > 0
+BEGIN DELETE FROM file_tags WHERE tag_id = NEW.id; END;
 CREATE TABLE IF NOT EXISTS api_keys (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     name         TEXT NOT NULL,

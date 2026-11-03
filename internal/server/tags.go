@@ -13,6 +13,9 @@ import (
 
 func tagError(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
+	if errors.Is(err, store.ErrAutomaticTag) {
+		status = http.StatusBadRequest
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		status = http.StatusNotFound
 	}
@@ -102,17 +105,22 @@ func (s *Server) handleFileTags(w http.ResponseWriter, r *http.Request) {
 			tagError(w, err)
 			return
 		}
-		known := map[int64]bool{}
+		known := map[int64]store.Tag{}
 		for _, t := range defs {
-			known[t.ID] = true
+			known[t.ID] = t
 		}
 		if len(req.Tags) > 128 {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "too many tags"})
 			return
 		}
 		for _, id := range req.Tags {
-			if !known[id] {
+			tag, exists := known[id]
+			if !exists {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown tag"})
+				return
+			}
+			if tag.Smart() {
+				tagError(w, store.ErrAutomaticTag)
 				return
 			}
 		}

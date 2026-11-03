@@ -565,7 +565,7 @@ export default function ConfigView({
                           href={
                             e.isDir ? dirHref(cwd === "" ? e.name : `${cwd}/${e.name}`) : fileHref(e.path)
                           }
-                          className="flex min-h-[56px] min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 text-left min-[761px]:px-4"
+                          className="flex min-h-[56px] min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 py-2.5 text-left min-[761px]:px-4"
                           onNavigate={() => void openEntry(e)}
                         >
                           <span
@@ -576,8 +576,8 @@ export default function ConfigView({
                           >
                             {e.isDir ? <FolderIcon size={17} /> : <FileIcon size={17} />}
                           </span>
-                          <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate text-sm font-medium">{e.name}</span>
+                          <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                            <span className="truncate text-sm leading-5 font-medium">{e.name}</span>
                             <TagBadges ids={e.tags} tags={tagData.tags} />
                             {e.symlink && (
                               <span className="truncate font-mono text-[11.5px] text-faint">

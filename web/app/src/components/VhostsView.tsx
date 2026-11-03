@@ -30,13 +30,13 @@ import {
   MenuItem,
   MonoTag,
   Pagination,
-  Segmented,
   SearchInput,
   Spinner,
   Switch,
   Toolbar,
 } from "../ui";
 import { FileTagsButton, TagBadges, TagFilters, useTagFilter, useTags } from "./Tags";
+import VhostStatusFilters, { useVhostStatus } from "./VhostStatusFilters";
 import SaveButton from "./SaveButton";
 import CodeEditor from "./CodeEditor";
 import { EditorRail, EditorStatus, RailSection, RailToggle } from "./EditorShell";
@@ -63,9 +63,6 @@ const streamTemplate = `server {
 `;
 
 type State = "enabled" | "maintenance" | "disabled";
-type Tab = "all" | State;
-
-const TABS: Tab[] = ["all", "enabled", "maintenance", "disabled"];
 
 const PAGE_SIZE = 50;
 
@@ -118,17 +115,13 @@ export default function VhostsView({
   const loc = useLocation();
   const editing = loc.searchParams.get("edit");
   const filter = loc.searchParams.get("q") ?? "";
-  // The state filter lives in the URL like the search does, so a filtered
-  // list can be linked to, reloaded and opened in a new tab.
-  const stateParam = loc.searchParams.get("state");
-  const tab: Tab = TABS.includes(stateParam as Tab) ? (stateParam as Tab) : "all";
   const setEditing = (name: string | null) => setQuery({ edit: name });
   const setFilter = (q: string) => setQuery({ q }, { replace: true });
-  const setTab = (v: Tab) => setQuery({ state: v === "all" ? null : v });
   const tagData = useTags();
   const tagFilter = useTagFilter();
   const [sites, setSites] = useState<Site[] | null>(null);
   const [maintenanceOK, setMaintenanceOK] = useState(false);
+  const statusFilter = useVhostStatus(maintenanceOK);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState("");
@@ -187,25 +180,19 @@ export default function VhostsView({
     [kind, ask, t, toast, output, onAuthLost, refresh],
   );
 
-  const counts = useMemo(() => {
-    const c = { all: sites?.length ?? 0, enabled: 0, maintenance: 0, disabled: 0 };
-    for (const s of sites ?? []) c[stateOf(s)]++;
-    return c;
-  }, [sites]);
-
   const filtered = useMemo(() => {
     if (!sites) return [];
     const q = filter.trim().toLowerCase();
     return sites.filter((s) => {
       if (!tagFilter.matches(s.tags)) return false;
-      if (tab !== "all" && stateOf(s) !== tab) return false;
+      if (!statusFilter.matches(s)) return false;
       if (!q) return true;
       return (
         s.name.toLowerCase().includes(q) ||
         (s.domains ?? []).some((d) => d.toLowerCase().includes(q))
       );
     });
-  }, [sites, filter, tab, tagFilter.key]);
+  }, [sites, filter, statusFilter.key, tagFilter.key]);
 
   // Rule edits and refreshed file contents may remove rows from the current
   // result without changing the URL. Never retain a hidden bulk selection.
@@ -223,9 +210,9 @@ export default function VhostsView({
   const current = Math.min(page, pages);
   const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
 
-  useEffect(() => setPage(1), [filter, tab, kind, tagFilter.key]);
+  useEffect(() => setPage(1), [filter, statusFilter.key, kind, tagFilter.key]);
 
-  useEffect(() => setSelected(new Set()), [filter, tab, kind, tagFilter.key]);
+  useEffect(() => setSelected(new Set()), [filter, statusFilter.key, kind, tagFilter.key]);
 
   async function create() {
     const name = await askName({
@@ -317,25 +304,10 @@ export default function VhostsView({
   const KindIcon = kind === "sites" ? GlobeIcon : StreamIcon;
   const newLabel = kind === "sites" ? t.newSite : t.newStream;
 
-  const tabs: { value: Tab; label: string; count: number }[] = [
-    { value: "all", label: t.filterAll, count: counts.all },
-    { value: "enabled", label: t.filterEnabled, count: counts.enabled },
-    ...(maintenanceOK
-      ? [{ value: "maintenance" as Tab, label: t.filterMaintenance, count: counts.maintenance }]
-      : []),
-    { value: "disabled", label: t.filterDisabled, count: counts.disabled },
-  ];
-
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <Toolbar>
-        <Segmented
-          value={tab}
-          onChange={setTab}
-          options={tabs}
-          ariaLabel={t.filterAll}
-          className="max-w-full overflow-x-auto"
-        />
+        <VhostStatusFilters sites={sites} maintenanceAvailable={maintenanceOK} filters={statusFilter} />
         <div className="flex min-w-[200px] flex-1 items-center justify-end gap-2.5">
           <SearchInput
             value={filter}

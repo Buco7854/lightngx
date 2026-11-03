@@ -92,3 +92,86 @@ func TestTagsSurviveReopen(t *testing.T) {
 		t.Fatalf("assignments: %v, %v", files, err)
 	}
 }
+
+func TestSmartTagsCannotBeAssigned(t *testing.T) {
+	s := open(t)
+	manual, err := s.SaveTag(Tag{Name: "manual", Mode: "all", Rules: json.RawMessage(`[]`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.SaveTag(Tag{Name: "other", Mode: "all", Rules: json.RawMessage(`[]`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetFileTags("file", []int64{manual.ID, other.ID}); err != nil {
+		t.Fatal(err)
+	}
+	manual.Rules = json.RawMessage(`[{"field":"content","op":"contains","value":"proxy_pass"}]`)
+	if _, err := s.SaveTag(manual); err != nil {
+		t.Fatal(err)
+	}
+	files, err := s.FileTags()
+	if err != nil || !reflect.DeepEqual(files["file"], []int64{other.ID}) {
+		t.Fatalf("conversion retained pins: %v %v", files, err)
+	}
+	if err := s.SetFileTags("file", []int64{manual.ID}); !errors.Is(err, ErrAutomaticTag) {
+		t.Fatalf("smart assignment: %v", err)
+	}
+	files, _ = s.FileTags()
+	if !reflect.DeepEqual(files["file"], []int64{other.ID}) {
+		t.Fatalf("rejected assignment erased manual labels: %v", files)
+	}
+	// Editing a failed duplicate definition cannot clear existing assignments.
+	other.Name = manual.Name
+	other.Rules = manual.Rules
+	if _, err := s.SaveTag(other); !errors.Is(err, ErrExists) {
+		t.Fatalf("duplicate: %v", err)
+	}
+	files, _ = s.FileTags()
+	if !reflect.DeepEqual(files["file"], []int64{other.ID}) {
+		t.Fatal("failed conversion changed assignments")
+	}
+	// Returning to manual never resurrects old pins.
+	manual.Rules = json.RawMessage(`[]`)
+	if _, err := s.SaveTag(manual); err != nil {
+		t.Fatal(err)
+	}
+	files, _ = s.FileTags()
+	if !reflect.DeepEqual(files["file"], []int64{other.ID}) {
+		t.Fatal("old assignments returned")
+	}
+}
+
+func TestLegacySmartAssignmentsAreRemovedOnOpen(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy.db")
+	s, err := Open(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag, err := s.SaveTag(Tag{Name: "legacy", Mode: "all", Rules: json.RawMessage(`[{"field":"path","op":"contains","value":"sites"}]`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a database created before rule-only tags were enforced.
+	if _, err := s.db.Exec(`DROP TRIGGER file_tags_manual_only_insert`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`INSERT INTO file_tags(path,tag_id) VALUES ('other.conf',?)`, tag.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	files, err := s.FileTags()
+	if err != nil || len(files) != 0 {
+		t.Fatalf("legacy pins: %v %v", files, err)
+	}
+	if err := s.SetFileTags("other.conf", []int64{tag.ID}); !errors.Is(err, ErrAutomaticTag) {
+		t.Fatalf("guard not restored: %v", err)
+	}
+}

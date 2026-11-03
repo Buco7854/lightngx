@@ -12,6 +12,7 @@ import {
   PlusIcon,
   TagIcon,
   TrashIcon,
+  XIcon,
 } from "../../icons";
 import {
   Badge,
@@ -84,7 +85,7 @@ export default function TagWorkspace({
     onChanged();
   }
   async function toggle(tag: Tag) {
-    if (!path || !file.data || busy) return;
+    if (!path || !file.data || busy || tag.rules.length) return;
     const manual = file.data.manual.includes(tag.id)
       ? file.data.manual.filter((id) => id !== tag.id)
       : [...file.data.manual, tag.id];
@@ -110,7 +111,7 @@ export default function TagWorkspace({
       const saved = await api.saveTag(definition, view.tag?.id);
       changedCatalog();
       let assignmentError = "";
-      if (path && !view.tag && assign && file.data) {
+      if (path && !view.tag && assign && !definition.rules.length && file.data) {
         try {
           file.setData(await api.setFileTags(path, [...file.data.manual, saved.id]));
           onChanged();
@@ -149,6 +150,9 @@ export default function TagWorkspace({
           (a, b) => Number(file.data!.tags.includes(b.id)) - Number(file.data!.tags.includes(a.id)),
         )
       : filtered;
+  const manualTags = ordered.filter((tag) => !tag.rules.length);
+  const smartTags = ordered.filter((tag) => tag.rules.length > 0);
+  const grouped = [...manualTags, ...smartTags];
   const title =
     view.kind === "edit"
       ? view.tag
@@ -295,88 +299,104 @@ export default function TagWorkspace({
                 {path ? t.tagFileHint : t.tagManagerHint}
               </p>
               <div className="divide-y divide-line-soft rounded-xl border border-line-soft">
-                {ordered.map((tag) => {
+                {grouped.map((tag, index) => {
                   const manual = file.data?.manual.includes(tag.id) ?? false;
                   const automatic = file.data?.automatic.includes(tag.id) ?? false;
+                  const heading =
+                    index === 0 || (index === manualTags.length && smartTags.length > 0);
                   return (
-                    <div
-                      key={tag.id}
-                      className={`flex items-center gap-3 px-3 py-3 ${manual || automatic ? "bg-accent-soft/30" : ""}`}
-                    >
-                      {path ? (
-                        <Checkbox
-                          checked={manual}
-                          disabled={busy || !file.data}
-                          onChange={() => void toggle(tag)}
-                          ariaLabel={t.tagAssignNamed(tag.name)}
-                        />
-                      ) : (
-                        <span
-                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tag.rules.length ? "bg-accent-soft text-accent-ink" : "bg-ctrl text-dim"}`}
-                        >
-                          {tag.rules.length ? <BoltIcon size={14} /> : <TagIcon size={14} />}
-                        </span>
+                    <div key={tag.id}>
+                      {heading && (
+                        <h4 className="bg-inset px-3 py-2 text-[11px] font-semibold text-dim">
+                          {tag.rules.length ? t.tagSmart : t.tagManual}
+                        </h4>
                       )}
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => {
-                          setError("");
-                          setView({ kind: "edit", tag });
-                        }}
-                        aria-label={t.tagEditNamed(tag.name)}
-                        className="min-w-0 flex-1 cursor-pointer rounded-md text-left focus-visible:outline-2 focus-visible:outline-accent"
+                      <div
+                        className={`flex items-center gap-3 px-3 py-3 ${manual || automatic ? "bg-accent-soft/30" : ""}`}
                       >
-                        <span className="block truncate text-[13.5px] font-medium" title={tag.name}>
-                          {tag.name}
-                        </span>
-                        <span className="mt-0.5 block text-[11.5px] text-dim">
-                          {tag.rules.length
-                            ? t.tagRuleSummary(tag.rules.length, tag.mode)
-                            : t.tagManual}
-                        </span>
-                      </button>
-                      {automatic && (
-                        <Badge tone="accent" className="gap-1 px-2 text-[10.5px]">
-                          <BoltIcon size={11} />
-                          <span className="max-[380px]:sr-only">{t.tagAutomatic}</span>
-                        </Badge>
-                      )}
-                      <Dropdown
-                        disabled={busy}
-                        ariaLabel={t.moreActions + " " + tag.name}
-                        variant="ghost"
-                        chevron={false}
-                        button={<MoreIcon size={17} />}
-                      >
-                        {(close) => (
-                          <>
-                            <MenuItem
-                              disabled={busy}
-                              onClick={() => {
-                                close();
-                                setError("");
-                                setView({ kind: "edit", tag });
-                              }}
-                            >
-                              <PencilIcon size={15} />
-                              {t.tagEdit}
-                            </MenuItem>
-                            <MenuItem
-                              danger
-                              disabled={busy}
-                              onClick={() => {
-                                close();
-                                setError("");
-                                setView({ kind: "delete", tag });
-                              }}
-                            >
-                              <TrashIcon size={15} />
-                              {t.tagDelete}
-                            </MenuItem>
-                          </>
+                        {path && !tag.rules.length ? (
+                          <Checkbox
+                            checked={manual}
+                            disabled={busy || !file.data}
+                            onChange={() => void toggle(tag)}
+                            ariaLabel={t.tagAssignNamed(tag.name)}
+                          />
+                        ) : (
+                          <span
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tag.rules.length ? "bg-accent-soft text-accent-ink" : "bg-ctrl text-dim"}`}
+                          >
+                            {tag.rules.length ? <BoltIcon size={14} /> : <TagIcon size={14} />}
+                          </span>
                         )}
-                      </Dropdown>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setError("");
+                            setView({ kind: "edit", tag });
+                          }}
+                          aria-label={t.tagEditNamed(tag.name)}
+                          className="min-w-0 flex-1 cursor-pointer rounded-md text-left focus-visible:outline-2 focus-visible:outline-accent"
+                        >
+                          <span
+                            className="block truncate text-[13.5px] font-medium"
+                            title={tag.name}
+                          >
+                            {tag.name}
+                          </span>
+                          <span className="mt-0.5 block text-[11.5px] text-dim">
+                            {tag.rules.length
+                              ? t.tagRuleSummary(tag.rules.length, tag.mode)
+                              : t.tagManual}
+                          </span>
+                        </button>
+                        {path && tag.rules.length > 0 && (
+                          <Badge
+                            tone={automatic ? "accent" : "neutral"}
+                            className="gap-1 px-2 text-[10.5px]"
+                          >
+                            {automatic ? <CheckIcon size={11} /> : <XIcon size={11} />}
+                            <span className="max-[420px]:sr-only">
+                              {automatic ? t.tagMatched : t.tagNotMatched}
+                            </span>
+                          </Badge>
+                        )}
+                        <Dropdown
+                          disabled={busy}
+                          ariaLabel={t.moreActions + " " + tag.name}
+                          variant="ghost"
+                          chevron={false}
+                          button={<MoreIcon size={17} />}
+                        >
+                          {(close) => (
+                            <>
+                              <MenuItem
+                                disabled={busy}
+                                onClick={() => {
+                                  close();
+                                  setError("");
+                                  setView({ kind: "edit", tag });
+                                }}
+                              >
+                                <PencilIcon size={15} />
+                                {t.tagEdit}
+                              </MenuItem>
+                              <MenuItem
+                                danger
+                                disabled={busy}
+                                onClick={() => {
+                                  close();
+                                  setError("");
+                                  setView({ kind: "delete", tag });
+                                }}
+                              >
+                                <TrashIcon size={15} />
+                                {t.tagDelete}
+                              </MenuItem>
+                            </>
+                          )}
+                        </Dropdown>
+                      </div>
                     </div>
                   );
                 })}

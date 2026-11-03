@@ -4,7 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 )
+
+var ErrAutomaticTag = errors.New("automatic tags cannot be assigned manually")
 
 // Tag rules are JSON owned and validated by the tags package.
 type Tag struct {
@@ -12,6 +15,12 @@ type Tag struct {
 	Name  string          `json:"name"`
 	Mode  string          `json:"mode"`
 	Rules json.RawMessage `json:"rules"`
+}
+
+// Smart reports whether this tag is derived exclusively from matching rules.
+func (t Tag) Smart() bool {
+	var rules []json.RawMessage
+	return json.Unmarshal(t.Rules, &rules) == nil && len(rules) > 0
 }
 
 func (s *Store) ListTags() ([]Tag, error) {
@@ -87,6 +96,9 @@ func (s *Store) SetFileTags(path string, ids []int64) error {
 	}
 	for _, id := range ids {
 		if _, err = tx.Exec(`INSERT OR IGNORE INTO file_tags(path,tag_id) VALUES (?,?)`, path, id); err != nil {
+			if strings.Contains(err.Error(), ErrAutomaticTag.Error()) {
+				return ErrAutomaticTag
+			}
 			return err
 		}
 	}

@@ -75,8 +75,18 @@ func TestTagsAPIAndConfigRollback(t *testing.T) {
 	call("POST", "/api/tags", `{"name":"PROXY","mode":"all","rules":[]}`, full, 409)
 	call("POST", "/api/tags", `{"name":"bad","mode":"all","rules":[{"field":"content","op":"regex","value":"["}]}`, full, 400)
 	call("PUT", "/api/config/file", `{"path":"sites-available/blog","content":"proxy_pass http://app;"}`, full, 200)
-	ids, _ := json.Marshal(map[string]any{"tags": []int64{tag.ID}})
+	smartIDs, _ := json.Marshal(map[string]any{"tags": []int64{tag.ID}})
+	call("PUT", "/api/config/tags?path=sites-available/blog", string(smartIDs), full, 400)
+	w = call("POST", "/api/tags", `{"name":"production","mode":"all","rules":[]}`, full, 200)
+	var manual store.Tag
+	if err := json.Unmarshal(w.Body.Bytes(), &manual); err != nil {
+		t.Fatal(err)
+	}
+	ids, _ := json.Marshal(map[string]any{"tags": []int64{manual.ID}})
 	call("PUT", "/api/config/tags?path=sites-available/blog", string(ids), full, 200)
+	// Mixed batches reject the smart tag without erasing valid manual labels.
+	mixed, _ := json.Marshal(map[string]any{"tags": []int64{manual.ID, tag.ID}})
+	call("PUT", "/api/config/tags?path=sites-available/blog", string(mixed), full, 400)
 	call("PUT", "/api/config/tags?path=../escape", string(ids), full, 403)
 	call("PUT", "/api/config/tags?path=sites-available/blog", `{"tags":[999]}`, full, 400)
 	w = call("GET", "/api/vhosts/sites", "", full, 200)
@@ -84,7 +94,7 @@ func TestTagsAPIAndConfigRollback(t *testing.T) {
 		Sites []sites.Site `json:"sites"`
 	}
 	json.Unmarshal(w.Body.Bytes(), &listing)
-	if len(listing.Sites) != 1 || len(listing.Sites[0].Tags) != 1 {
+	if len(listing.Sites) != 1 || len(listing.Sites[0].Tags) != 2 {
 		t.Fatalf("list missing tags: %s", w.Body)
 	}
 	// Failed validation must leave both file and labels at the original path.
@@ -123,7 +133,7 @@ func TestTagsAPIAndConfigRollback(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &listing); err != nil {
 		t.Fatal(err)
 	}
-	if len(listing.Sites) != 1 || listing.Sites[0].Path != "vhosts/copy" || len(listing.Sites[0].Tags) != 1 {
+	if len(listing.Sites) != 1 || listing.Sites[0].Path != "vhosts/copy" || len(listing.Sites[0].Tags) != 2 {
 		t.Fatalf("custom source path: %s", w.Body)
 	}
 	// A metadata persistence failure must restore a validated filesystem change.

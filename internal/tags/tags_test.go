@@ -48,7 +48,7 @@ func TestMatchingAndInvalidation(t *testing.T) {
 	manual := save("production", "all", nil)
 	smart := save("proxy", "all", []Rule{{Field: "content", Op: "contains", Value: "proxy_pass", IgnoreCase: true}, {Field: "path", Op: "regex", Value: `sites-available/.*\.conf$`}})
 	any := save("either", "any", []Rule{{Field: "content", Op: "contains", Value: "absent"}, {Field: "path", Op: "contains", Value: "blog"}})
-	if err := db.SetFileTags(path, []int64{manual.ID, smart.ID}); err != nil {
+	if err := db.SetFileTags(path, []int64{manual.ID}); err != nil {
 		t.Fatal(err)
 	}
 	write("server { PROXY_PASS http://app; }")
