@@ -60,6 +60,27 @@ contents to remove that match. Rules evaluate saved content,
 so unsaved editor changes do not affect tags. Reopening a list refreshes matches,
 including changes made outside Lightngx.
 
+## Apply manual tags in bulk
+
+Select files with the row checkboxes in **Sites**, **Streams**, or
+**Configuration**, then choose **Tags** in the selection bar. The header checkbox
+selects only the current page. Selection stays with you across pages; choose
+**Select all … matching files** to include other pages explicitly. Batches are
+limited to 200 files. For larger results, **Select first 200 matching files**
+names that limit before you act. Changing filters or folders clears the selection.
+Folders and external links cannot be selected in the config browser.
+
+In the dialog, choose **Add** or **Remove**, then select the manual tags to
+change. Each tag shows whether it is assigned to all, some, or none of the
+selected files. You can create a manual tag here; it is assigned only when you
+choose **Add tags**. Adding or removing labels preserves each file’s other tags.
+Smart tags remain rule-driven and do not appear as assignment options.
+
+The update either succeeds for every selected file or changes none. Missing
+files, external links, unknown tags, and tags converted to smart are rejected.
+Internal symlink aliases of the same file are counted and updated once. These
+metadata changes do not edit nginx contents or require a reload.
+
 ## Filter lists
 
 Use the searchable **Include** and **Exclude** pickers above a list. Selected
@@ -106,6 +127,8 @@ protection for mutations:
 | DELETE | `/api/tags/{id}` | Delete the tag and its assignments |
 | GET | `/api/config/tags?path=...` | `{ "manual": [id], "automatic": [id], "tags": [id] }` (tags is the union) |
 | PUT | `/api/config/tags?path=...` | Replace manual assignments (smart IDs are rejected): `{ "tags": [id] }` |
+| POST | `/api/config/tags/batch` | Preview `{ "paths": [...] }`; returns `{ "files": n, "tags": [{ "id", "name", "mode", "rules", "count" }] }` with manual tags only |
+| PATCH | `/api/config/tags/batch` | Apply `{ "paths": [...], "tags": [id], "operation": "add" }` or `"remove"`; returns `{ "files": n }` |
 
 A rule is `{ "field": "content", "op": "contains", "value": "proxy_pass",
 "ignoreCase": false }`. Fields are `content` or `path`; operators are `contains`,

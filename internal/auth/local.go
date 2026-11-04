@@ -18,34 +18,44 @@ func HashPassword(pass string) (string, error) {
 	return string(b), err
 }
 
-// RateLimiter tracks login failures per client IP: after `burst` failures
-// within `window`, further attempts are rejected until the window expires.
+// RateLimiter reserves attempts before expensive authentication work, so
+// concurrent requests cannot all pass the same remaining allowance.
 type RateLimiter struct {
 	mu       sync.Mutex
 	window   time.Duration
 	burst    int
 	failures map[string][]time.Time
+	nextGC   time.Time
 }
+
+const maxRateLimitEntries = 10000
 
 func NewRateLimiter(burst int, window time.Duration) *RateLimiter {
 	return &RateLimiter{window: window, burst: burst, failures: map[string][]time.Time{}}
 }
 
-// Allow reports whether ip may attempt a login right now.
+// Allow atomically reserves an attempt. Successful authentication may Reset
+// the key; rejected and in-flight attempts retain their reservation.
 func (rl *RateLimiter) Allow(ip string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
-	return len(rl.recent(ip)) < rl.burst
-}
-
-// Fail records a failed attempt for ip.
-func (rl *RateLimiter) Fail(ip string) {
-	rl.mu.Lock()
-	defer rl.mu.Unlock()
-	rl.failures[ip] = append(rl.recent(ip), time.Now())
-	if len(rl.failures) > 10000 {
-		rl.gc()
+	recent := rl.recent(ip)
+	if len(recent) >= rl.burst {
+		return false
 	}
+	now := time.Now()
+	if len(recent) == 0 && len(rl.failures) >= maxRateLimitEntries {
+		if now.Before(rl.nextGC) {
+			return false
+		}
+		rl.gc()
+		rl.nextGC = now.Add(time.Second)
+		if len(rl.failures) >= maxRateLimitEntries {
+			return false
+		}
+	}
+	rl.failures[ip] = append(recent, now)
+	return true
 }
 
 // Reset clears failures for ip after a successful login.

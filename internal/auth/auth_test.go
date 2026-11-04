@@ -3,6 +3,9 @@ package auth
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -82,7 +85,6 @@ func TestRateLimiter(t *testing.T) {
 		if !rl.Allow(ip) {
 			t.Fatalf("attempt %d should be allowed", i)
 		}
-		rl.Fail(ip)
 	}
 	if rl.Allow(ip) {
 		t.Error("4th attempt should be blocked")
@@ -93,6 +95,43 @@ func TestRateLimiter(t *testing.T) {
 	rl.Reset(ip)
 	if !rl.Allow(ip) {
 		t.Error("reset should unblock")
+	}
+}
+
+func TestRateLimiterReservesConcurrentAttemptsAndBoundsClients(t *testing.T) {
+	rl := NewRateLimiter(5, time.Minute)
+	var allowed atomic.Int32
+	var wg sync.WaitGroup
+	for range 100 {
+		wg.Go(func() {
+			if rl.Allow("shared") {
+				allowed.Add(1)
+			}
+		})
+	}
+	wg.Wait()
+	if allowed.Load() != 5 {
+		t.Fatalf("concurrent allowance = %d", allowed.Load())
+	}
+	rl.Reset("shared")
+	for i := range maxRateLimitEntries {
+		if !rl.Allow(strconv.Itoa(i)) {
+			t.Fatalf("client %d rejected before capacity", i)
+		}
+	}
+	if rl.Allow("overflow") || len(rl.failures) != maxRateLimitEntries {
+		t.Fatal("limiter exceeded its memory bound")
+	}
+	// Existing clients still receive their remaining allowance at capacity.
+	if !rl.Allow("0") {
+		t.Fatal("existing client blocked by capacity")
+	}
+	for key := range rl.failures {
+		rl.failures[key] = []time.Time{time.Now().Add(-2 * time.Minute)}
+	}
+	rl.nextGC = time.Time{}
+	if !rl.Allow("fresh") || len(rl.failures) != 1 {
+		t.Fatal("expired entries did not free capacity")
 	}
 }
 

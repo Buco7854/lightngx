@@ -1,8 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/Buco7854/lightngx/internal/accounts"
 	"github.com/Buco7854/lightngx/internal/auth"
@@ -22,17 +26,18 @@ func (s *Server) localSession(w http.ResponseWriter, r *http.Request) (*auth.Ses
 }
 
 // upgradeAfterMFA raises the current session to full once a partial
-// (mfa/enroll) session has satisfied its requirement, keeping the same sid.
+// (mfa/enroll) session has satisfied its requirement, rotating the sid.
 func (s *Server) upgradeAfterMFA(w http.ResponseWriter, r *http.Request, sess *auth.Session) error {
 	u, err := s.accounts.Store().GetUser(sess.UserID)
 	if err != nil {
 		return err
 	}
-	if err := s.accounts.Store().UpgradeSession(sess.Sid, auth.LevelFull, s.sessions.TTLFor(auth.LevelFull)); err != nil {
+	sid, err := s.accounts.Store().UpgradeSession(sess.Sid, auth.LevelFull, s.sessions.TTLFor(auth.LevelFull))
+	if err != nil {
 		return err
 	}
 	return s.sessions.Issue(w, r, auth.Session{
-		UserID: u.ID, User: u.Username, Role: u.Role, Method: "local", Level: auth.LevelFull, Sid: sess.Sid,
+		UserID: u.ID, User: u.Username, Role: u.Role, Method: "local", Level: auth.LevelFull, Sid: sid,
 	})
 }
 
@@ -48,7 +53,8 @@ func (s *Server) handleVerifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := s.clientIP(r)
-	if !s.limiter.Allow(ip) {
+	userKey := "mfa:" + strconv.FormatInt(sess.UserID, 10)
+	if !s.limiter.Allow(ip) || !s.limiter.Allow(userKey) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
 		return
 	}
@@ -58,17 +64,30 @@ func (s *Server) handleVerifyTOTP(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req, 1024) {
 		return
 	}
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	secret, confirmed, err := s.accounts.Store().TOTPSecret(sess.UserID)
-	lastUsed, _ := s.accounts.Store().TOTPLastUsed(sess.UserID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
+		return
+	}
+	lastUsed, err := s.accounts.Store().TOTPLastUsed(sess.UserID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
+		return
+	}
 	matched, ok := auth.VerifyTOTP(secret, req.Code, lastUsed)
-	if err != nil || !confirmed || !ok {
-		s.limiter.Fail(ip)
+	if !confirmed || !ok {
 		s.audit(r, "mfa.totp.verify_failed", "username", sess.User)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid code"})
 		return
 	}
-	_ = s.accounts.Store().SetTOTPLastUsed(sess.UserID, matched)
+	if err := s.accounts.Store().SetTOTPLastUsed(sess.UserID, matched); err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "code already used"})
+		return
+	}
 	s.limiter.Reset(ip)
+	s.limiter.Reset(userKey)
 	if err := s.upgradeAfterMFA(w, r, sess); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
 		return
@@ -87,6 +106,9 @@ const (
 )
 
 func (s *Server) setWACookie(w http.ResponseWriter, r *http.Request, name string, sd *webauthnx.SessionData) error {
+	if err := s.accounts.Store().SaveChallenge(name, sd.Challenge, sd.Expires); err != nil {
+		return err
+	}
 	payload, err := json.Marshal(sd)
 	if err != nil {
 		return err
@@ -114,6 +136,10 @@ func (s *Server) readWACookie(w http.ResponseWriter, r *http.Request, name strin
 	var sd webauthnx.SessionData
 	if err := json.Unmarshal(payload, &sd); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad challenge"})
+		return nil, false
+	}
+	if sd.Expires.IsZero() || !time.Now().Before(sd.Expires) || s.accounts.Store().ConsumeChallenge(name, sd.Challenge) != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "challenge expired or already used"})
 		return nil, false
 	}
 	return &sd, true
@@ -210,7 +236,6 @@ func (s *Server) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request
 	}
 	u, err := s.webauthn.FinishPasskeyLogin(r, s.accounts.Store(), sd)
 	if err != nil {
-		s.limiter.Fail(ip)
 		s.audit(r, "login.passkey_failed", "reason", err.Error())
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "passkey sign-in failed"})
 		return
@@ -238,10 +263,23 @@ func (s *Server) canEnrol(w http.ResponseWriter, r *http.Request) (*auth.Session
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "forbidden"})
 		return nil, false
 	}
+	if sess.Level == auth.LevelEnroll {
+		u, err := s.accounts.Store().GetUser(sess.UserID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
+			return nil, false
+		}
+		if u.MFAEnrolled() {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "MFA enrollment already completed; sign in again"})
+			return nil, false
+		}
+	}
 	return sess, true
 }
 
 func (s *Server) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	sess, ok := s.canEnrol(w, r)
 	if !ok {
 		return
@@ -260,14 +298,22 @@ func (s *Server) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request) {
-	sess, ok := s.canEnrol(w, r)
-	if !ok {
-		return
-	}
 	var req struct {
 		Code string `json:"code"`
 	}
 	if !readJSON(w, r, &req, 1024) {
+		return
+	}
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
+	sess, ok := s.canEnrol(w, r)
+	if !ok {
+		return
+	}
+	ip := s.clientIP(r)
+	userKey := "mfa-enroll:" + strconv.FormatInt(sess.UserID, 10)
+	if !s.limiter.Allow(ip) || !s.limiter.Allow(userKey) {
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
 		return
 	}
 	secret, confirmed, err := s.accounts.Store().TOTPSecret(sess.UserID)
@@ -288,12 +334,19 @@ func (s *Server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
-	_ = s.accounts.Store().SetTOTPLastUsed(sess.UserID, matched)
+	if err := s.accounts.Store().SetTOTPLastUsed(sess.UserID, matched); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
+		return
+	}
+	s.limiter.Reset(ip)
+	s.limiter.Reset(userKey)
 	s.audit(r, "mfa.totp.enrolled", "username", sess.User)
 	s.finishEnrol(w, r, sess)
 }
 
 func (s *Server) handleRegisterWebAuthnBegin(w http.ResponseWriter, r *http.Request) {
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	sess, ok := s.canEnrol(w, r)
 	if !ok {
 		return
@@ -316,6 +369,16 @@ func (s *Server) handleRegisterWebAuthnBegin(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleRegisterWebAuthnFinish(w http.ResponseWriter, r *http.Request) {
+	// Read the bounded upload before taking the MFA state lock. A slow client
+	// must not prevent other users from completing their second factor.
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	sess, ok := s.canEnrol(w, r)
 	if !ok {
 		return
@@ -367,6 +430,8 @@ func (s *Server) handleListCredentials(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteCredential(w http.ResponseWriter, r *http.Request) {
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	sess, _ := sessionFrom(r.Context())
 	id := r.URL.Query().Get("id")
 	if err := s.accounts.Store().DeleteCredential(sess.UserID, id); err != nil {
@@ -378,6 +443,8 @@ func (s *Server) handleDeleteCredential(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleDeleteTOTP(w http.ResponseWriter, r *http.Request) {
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	sess, _ := sessionFrom(r.Context())
 	if err := s.accounts.Store().ClearTOTP(sess.UserID); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})

@@ -69,6 +69,9 @@ build untrusted documentation/configuration. Track upstream patches instead of
 suppressing these audit results. `npm audit` may also list affected parent
 packages, so its total is larger than two.
 
-The stable `golang.org/x/crypto` release also retains a module-level advisory for
-its unused, deprecated `openpgp` package. Lightngx does not import it;
-`govulncheck` reports no affected imported packages or reachable symbols.
+`golang.org/x/crypto` is pinned to upstream revision `2f1f834330b2`
+(`v0.58.1-0.20261009181718-2f1f834330b2`). Compared with v0.58.0, this revision
+only removes the unused, deprecated `openpgp` package, resolving
+[GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932) at module level as well.
+Use a later stable release when it includes that fix; do not downgrade to
+v0.58.0 merely to remove the pseudo-version from `go.mod`.

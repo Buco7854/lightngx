@@ -46,6 +46,8 @@ type Server struct {
 	// rollback, so concurrent saves cannot fail on each other's in-flight
 	// changes or roll back content another request just committed.
 	mutate sync.Mutex
+	// Serialize MFA state checks with enrollment, verification and removal.
+	mfaMu sync.Mutex
 
 	tags tags.Engine
 
@@ -133,6 +135,8 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("DELETE /api/tags/{id}", s.handleTags)
 	api.HandleFunc("GET /api/config/tags", s.handleFileTags)
 	api.HandleFunc("PUT /api/config/tags", s.handleFileTags)
+	api.HandleFunc("POST /api/config/tags/batch", s.handleBatchFileTags)
+	api.HandleFunc("PATCH /api/config/tags/batch", s.handleBatchFileTags)
 	api.HandleFunc("GET /api/config/tree", s.handleTree)
 	api.HandleFunc("GET /api/config/file", s.handleReadFile)
 	api.HandleFunc("PUT /api/config/file", s.handleWriteFile)
@@ -179,7 +183,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("/", s.staticHandler())
 
-	return securityHeaders(csrfProtect(mux))
+	return securityHeaders(csrfProtect(s.requestLimits(mux)))
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -243,7 +247,6 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := s.accounts.Bootstrap(req.Username, req.Password)
 	if err != nil {
-		s.limiter.Fail(ip)
 		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 		return
 	}
@@ -282,8 +285,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	dec, err := s.accounts.Authenticate(req.Username, req.Password)
 	if err != nil {
-		s.limiter.Fail(ip)
-		s.limiter.Fail(userKey)
 		s.audit(r, "login.failed", "username", req.Username)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
 		return
@@ -671,14 +672,17 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	var wmu sync.Mutex
-	write := func(s string) error {
+	write := func(frame string) error {
 		wmu.Lock()
 		defer wmu.Unlock()
-		if _, err := io.WriteString(w, s); err != nil {
+		if _, ok := s.liveSession(r); !ok {
+			return auth.ErrInvalidSession
+		}
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(10 * time.Second))
+		if _, err := io.WriteString(w, frame); err != nil {
 			return err
 		}
-		flusher.Flush()
-		return nil
+		return http.NewResponseController(w).Flush()
 	}
 
 	// Heartbeat keeps intermediaries from closing the stream.

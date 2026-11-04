@@ -24,6 +24,33 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			h.Set("Cache-Control", "no-store")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requestLimits also covers third-party decoders, notably WebAuthn assertions
+// and attestations. Endpoint-specific JSON limits can be smaller.
+func (s *Server) requestLimits(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			limit := int64(1 << 20)
+			if r.Method == http.MethodPut && r.URL.Path == "/api/config/file" {
+				limit = max(limit, s.cfg.MaxEditSize+(64<<10))
+			}
+			if r.ContentLength > limit {
+				writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "request body too large"})
+				return
+			}
+			if r.Body != nil && r.Body != http.NoBody {
+				r.Body = http.MaxBytesReader(w, r.Body, limit)
+				// A byte limit alone does not stop an indefinitely slow upload.
+				// Leave bodyless streams' disconnect detection untouched.
+				_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(15 * time.Second))
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }
@@ -132,6 +159,7 @@ func (s *Server) liveSession(r *http.Request) (*auth.Session, bool) {
 	return &auth.Session{
 		UserID: rec.UserID, User: rec.Username, Role: rec.Role,
 		Method: rec.Method, Level: rec.Level, Sid: rec.Sid,
+		IssuedAt: rec.CreatedAt, ExpiresAt: rec.ExpiresAt,
 	}, true
 }
 

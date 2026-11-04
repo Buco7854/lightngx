@@ -92,6 +92,12 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     expires_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
+CREATE TABLE IF NOT EXISTS auth_challenges (
+    challenge TEXT PRIMARY KEY,
+    purpose TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_challenges_expiry ON auth_challenges(expires_at);
 CREATE TABLE IF NOT EXISTS trusted_devices (
     id          TEXT PRIMARY KEY,
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

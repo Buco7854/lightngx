@@ -55,7 +55,7 @@ func (s *Store) SetPendingTOTP(id int64, secret string) error {
 	if err != nil {
 		return err
 	}
-	return s.touch(`UPDATE users SET totp_secret = ?, totp_confirmed = 0, updated_at = ? WHERE id = ?`, enc, now(), id)
+	return s.touch(`UPDATE users SET totp_secret = ?, totp_confirmed = 0, totp_last_used = 0, updated_at = ? WHERE id = ?`, enc, now(), id)
 }
 
 // ConfirmTOTP marks the pending TOTP secret as an active second factor.

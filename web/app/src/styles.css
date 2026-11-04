@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+.batch-selection { flex-shrink: 0; border-block: 1px solid var(--color-line-soft); background: var(--color-panel); padding: 8px 24px; }
+.batch-selection-main { display: flex; align-items: center; gap: 8px; }
+.batch-selection-scope { margin: 4px 0 0 40px; }
+.batch-selection-scope > button { white-space: normal; height: auto; min-height: 32px; text-align: left; }
+.batch-tag-list { max-height: 280px; overflow-y: auto; border-block: 1px solid var(--color-line-soft); }
+.batch-tag-row { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 4px; border-bottom: 1px solid var(--color-line-soft); }
+.batch-tag-row:last-child { border-bottom: 0; }
+.site-row:has(input[type="checkbox"]:checked), .config-file-list li:has(input[type="checkbox"]:checked) { background: var(--color-hov); }
+@media (max-width: 760px) { .batch-selection { padding-inline: 12px; } .batch-selection-main { gap: 6px; } }
+
 @font-face {
   font-family: 'IBM Plex Mono';
   font-style: normal;
@@ -455,8 +465,8 @@ button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid
 .vhosts-workspace > .ui-toolbar { padding: 0 32px 16px; border-bottom: 0; align-items: flex-end; }
 .site-table-area { padding: 8px 32px 24px; overflow: visible; flex: 1 0 auto; }
 .site-table { max-width: none; border: 0; border-radius: 0; box-shadow: none; }
-.site-table-head { min-height: 42px; background: transparent; padding: 8px 0; color: var(--color-dim); }
-.site-row { padding: 20px 0; min-height: 92px; }
+.site-table-head { min-height: 42px; background: transparent; padding: 8px; color: var(--color-dim); }
+.site-row { padding: 20px 8px; min-height: 92px; }
 .site-row:hover { background: var(--color-inset); }
 .site-name { font-size: 14px; font-weight: 500; }
 .site-state { background: transparent; padding: 0; font-size: 12px; font-weight: 400; }
@@ -518,7 +528,7 @@ button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid
   .vhosts-workspace > .ui-toolbar { padding: 0 16px 12px; gap: 12px; }
   .vhosts-workspace > .ui-toolbar > :last-child { min-width: 100%; }
   .site-table-area { padding: 4px 16px 20px; }
-  .site-row { gap: 12px; padding: 16px 0; }
+  .site-row { gap: 12px; padding: 16px 8px; }
   .site-row .site-identity { min-width: 0; width: calc(100% - 32px); flex: 1; }
   .site-row .row-actions { margin-left: 0; justify-content: space-between; width: 100%; gap: 8px; }
   .site-row .row-actions > div { gap: 6px; }

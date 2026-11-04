@@ -176,6 +176,8 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleResetUserMFA(w http.ResponseWriter, r *http.Request) {
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	id, ok := pathID(w, r)
 	if !ok {
 		return

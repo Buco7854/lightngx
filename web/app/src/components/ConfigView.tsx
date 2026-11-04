@@ -18,11 +18,15 @@ import { useI18n } from "../i18n";
 import { hrefWithQuery, Link, setQuery, useLocation } from "../router";
 import { useToast } from "../toast";
 import { useFileEditor } from "../useFileEditor";
+import { useBatchSelection } from "../useBatchSelection";
+import BatchSelection from "./BatchSelection";
+import BatchTagsDialog from "./tags/BatchTagsDialog";
 import { useReloadToast } from "../useReloadToast";
 import {
   Badge,
   Btn,
   Card,
+  Checkbox,
   EmptyState,
   IconBtn,
   Loading,
@@ -187,6 +191,7 @@ export default function ConfigView({
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [tagPaths, setTagPaths] = useState<string[] | null>(null);
   const [treeWidth, setTreeWidth] = useState(storedTreeWidth);
   const file = useFileEditor(onAuthLost);
   const restored = useRef(false);
@@ -218,6 +223,10 @@ export default function ConfigView({
   const pages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
   const current = Math.min(page, pages);
   const shown = entries.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+
+  const eligible = entries.filter(e => !e.isDir && !e.external);
+  const selection = useBatchSelection(eligible.map(e => e.path), shown.filter(e => !e.isDir && !e.external).map(e => e.path),
+    JSON.stringify([cwd, filter, tagFilter.key, file.path]));
 
   useEffect(() => setPage(1), [cwd, filter, tagFilter.key]);
 
@@ -535,6 +544,9 @@ export default function ConfigView({
             </Toolbar>
             <div className="desktop-filters"><TagFilters tags={tagData.tags} error={tagData.error} onChanged={() => { tagData.refresh(); refresh(); }} /></div>
             <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} active={tagFilter.active} onReset={tagFilter.clear} resultCount={entries.length} tags={tagData.tags} tagError={tagData.error} onTagsChanged={() => { tagData.refresh(); refresh(); }} />
+            <BatchSelection count={selection.selected.size} total={eligible.length} canSelectMore={selection.canSelectMore} atLimit={selection.atLimit}
+              onClear={selection.clear} onSelectMatching={selection.selectMatching} onTags={() => setTagPaths([...selection.selected])} />
+            {tagPaths && <BatchTagsDialog paths={tagPaths} onClose={() => setTagPaths(null)} onChanged={() => { selection.clear(); tagData.refresh(); refresh(); }} />}
             <span role="status" className="sr-only">{t.itemsCount(entries.length)}</span>
             <div className="config-list-area flex min-h-0 flex-1 flex-col overflow-auto p-4 min-[761px]:p-6">
               {!tree ? (
@@ -561,12 +573,20 @@ export default function ConfigView({
               ) : (
                 <div className="flex w-full shrink-0 flex-col gap-3">
                 <Card className="config-file-list w-full overflow-hidden">
+                  {eligible.length > 0 && <div data-batch-select className="flex min-h-11 items-center gap-3 border-b border-line-soft px-3 min-[761px]:px-4">
+                    <Checkbox checked={selection.allPage} indeterminate={selection.somePage} disabled={shown.every(e => e.isDir || e.external) || (selection.atLimit && !selection.allPage)} onChange={selection.togglePage} ariaLabel={t.batchSelectPage} />
+                    <span className="text-xs text-dim">{t.itemsCount(entries.length)}</span>
+                  </div>}
+
                   <ul className="m-0 flex list-none flex-col divide-y divide-line-soft p-0">
                     {shown.map((e) => (
                       <li
                         key={e.path}
                         className="group flex items-center transition-colors hover:bg-hov"
                       >
+                        {eligible.length > 0 && <span className="ml-3 flex w-[19px] shrink-0 items-center min-[761px]:ml-4">
+                          {!e.isDir && !e.external && <Checkbox checked={selection.selected.has(e.path)} disabled={selection.atLimit && !selection.selected.has(e.path)} onChange={() => selection.toggle(e.path)} ariaLabel={e.name} />}
+                        </span>}
                         <Link
                           href={
                             e.isDir ? dirHref(cwd === "" ? e.name : `${cwd}/${e.name}`) : fileHref(e.path)

@@ -12,13 +12,15 @@ import {
   PlusIcon,
   StreamIcon,
   TrashIcon,
-  WrenchIcon,
   CheckIcon,
 } from "../icons";
 import { useI18n } from "../i18n";
 import { hrefWithQuery, Link, setQuery, useLocation } from "../router";
 import { useToast } from "../toast";
 import { useFileEditor } from "../useFileEditor";
+import { useBatchSelection } from "../useBatchSelection";
+import BatchSelection from "./BatchSelection";
+import BatchTagsDialog from "./tags/BatchTagsDialog";
 import { useReloadToast } from "../useReloadToast";
 import {
   Badge,
@@ -118,7 +120,7 @@ export default function VhostsView({
   const [sites, setSites] = useState<Site[] | null>(null);
   const [maintenanceOK, setMaintenanceOK] = useState(false);
   const statusFilter = useVhostStatus(maintenanceOK);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [tagPaths, setTagPaths] = useState<string[] | null>(null);
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -137,6 +139,28 @@ export default function VhostsView({
   }, [kind, onAuthLost, toast, t]);
 
   useEffect(refresh, [refresh]);
+
+  const filtered = useMemo(() => {
+    if (!sites) return [];
+    const q = filter.trim().toLowerCase();
+    return sites.filter((s) => {
+      if (!tagFilter.matches(s.tags)) return false;
+      if (!statusFilter.matches(s)) return false;
+      if (!q) return true;
+      return (
+        s.name.toLowerCase().includes(q) ||
+        (s.domains ?? []).some((d) => d.toLowerCase().includes(q))
+      );
+    });
+  }, [sites, filter, statusFilter.key, tagFilter.key]);
+
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const current = Math.min(page, pages);
+  const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const selection = useBatchSelection(filtered.map(s => s.name), shown.map(s => s.name),
+    JSON.stringify([filter, statusFilter.key, kind, tagFilter.key, editing]));
+  const { selected, setSelected } = selection;
+  useEffect(() => setPage(1), [filter, statusFilter.key, kind, tagFilter.key]);
 
   // runAction applies an action to one or more vhosts. Every action
   // confirms first (opts.confirm:false skips it). busyKey scopes the
@@ -158,6 +182,7 @@ export default function VhostsView({
       setBusy(names.join("\n"));
       try {
         await api.vhostAction(kind, names, action);
+        setSelected(previous => new Set([...previous].filter(name => !names.includes(name))));
         toast(t.siteActionApplied);
         return true;
       } catch (err) {
@@ -170,46 +195,11 @@ export default function VhostsView({
         return false;
       } finally {
         setBusy("");
-        if (names.length > 1) setSelected(new Set());
         refresh();
       }
     },
-    [kind, ask, t, toast, output, onAuthLost, refresh],
+    [kind, ask, t, toast, output, onAuthLost, refresh, setSelected],
   );
-
-  const filtered = useMemo(() => {
-    if (!sites) return [];
-    const q = filter.trim().toLowerCase();
-    return sites.filter((s) => {
-      if (!tagFilter.matches(s.tags)) return false;
-      if (!statusFilter.matches(s)) return false;
-      if (!q) return true;
-      return (
-        s.name.toLowerCase().includes(q) ||
-        (s.domains ?? []).some((d) => d.toLowerCase().includes(q))
-      );
-    });
-  }, [sites, filter, statusFilter.key, tagFilter.key]);
-
-  // Rule edits and refreshed file contents may remove rows from the current
-  // result without changing the URL. Never retain a hidden bulk selection.
-  useEffect(() => {
-    const visible = new Set(filtered.map(s => s.name));
-    setSelected(previous => {
-      const next = new Set([...previous].filter(name => visible.has(name)));
-      return next.size === previous.size ? previous : next;
-    });
-  }, [filtered]);
-
-  // Selection and the header count stay on the whole filtered set; only the
-  // rendered rows are paged.
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pages);
-  const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
-
-  useEffect(() => setPage(1), [filter, statusFilter.key, kind, tagFilter.key]);
-
-  useEffect(() => setSelected(new Set()), [filter, statusFilter.key, kind, tagFilter.key]);
 
   async function create() {
     const name = await askName({
@@ -279,20 +269,6 @@ export default function VhostsView({
 
   if (sites === null) return <Loading />;
 
-  const allSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.name));
-  const someSelected = filtered.some((s) => selected.has(s.name));
-  const toggleAll = () => {
-    const next = new Set(selected);
-    if (allSelected) filtered.forEach((s) => next.delete(s.name));
-    else filtered.forEach((s) => next.add(s.name));
-    setSelected(next);
-  };
-  const toggleOne = (name: string) => {
-    const next = new Set(selected);
-    if (next.has(name)) next.delete(name);
-    else next.add(name);
-    setSelected(next);
-  };
   const sel = [...selected];
   const selSites = sites.filter((s) => selected.has(s.name));
   const anyEnabled = selSites.some((s) => s.enabled && !s.maintenance);
@@ -341,36 +317,20 @@ export default function VhostsView({
         status={<VhostStatusFilters sites={sites} maintenanceAvailable={maintenanceOK} filters={statusFilter} />}
       />
 
-      {selected.size > 0 && (
-        <div className="anim-slide-up flex flex-wrap items-center gap-2 border-b border-line bg-accent-soft px-3 py-2.5 min-[761px]:px-5">
-          <span className="text-[13px] font-semibold text-accent-ink">
-            {t.selectedCount(selected.size)}
-          </span>
-          <Btn size="sm" onClick={() => setSelected(new Set())}>
-            {t.clearSelection}
-          </Btn>
-          <span className="flex-1" />
-          <Btn size="sm" disabled={anyBusy} onClick={() => void runAction(sel, "enable")}>
-            {t.enableSite}
-          </Btn>
-          <Btn size="sm" disabled={anyBusy} onClick={() => void runAction(sel, "disable")}>
-            {t.disableSite}
-          </Btn>
-          {maintenanceOK && anyEnabled && (
-            <Btn size="sm" disabled={anyBusy} onClick={() => void runAction(sel, "maintenance_on")}>
-              <WrenchIcon size={14} /> {t.maintenanceOn}
-            </Btn>
-          )}
-          {maintenanceOK && anyMaint && (
-            <Btn size="sm" disabled={anyBusy} onClick={() => void runAction(sel, "maintenance_off")}>
-              {t.maintenanceOff}
-            </Btn>
-          )}
-          <Btn size="sm" variant="danger" disabled={anyBusy} onClick={() => void runAction(sel, "delete")}>
-            <TrashIcon size={14} /> {t.deleteAction}
-          </Btn>
-        </div>
-      )}
+      <BatchSelection count={selected.size} total={filtered.length} canSelectMore={selection.canSelectMore} atLimit={selection.atLimit}
+        busy={anyBusy} onClear={selection.clear} onSelectMatching={selection.selectMatching}
+        onTags={() => setTagPaths(selSites.map(site => site.path ?? `${kind}-available/${site.name}`))}>
+        <Dropdown size="sm" disabled={anyBusy} chevron={false} button={<MoreIcon size={17} />} ariaLabel={t.batchActions}>
+          {close => <>
+            <MenuItem onClick={() => { close(); void runAction(sel, "enable"); }}>{t.enableSite}</MenuItem>
+            <MenuItem onClick={() => { close(); void runAction(sel, "disable"); }}>{t.disableSite}</MenuItem>
+            {maintenanceOK && anyEnabled && <MenuItem onClick={() => { close(); void runAction(sel, "maintenance_on"); }}>{t.maintenanceOn}</MenuItem>}
+            {maintenanceOK && anyMaint && <MenuItem onClick={() => { close(); void runAction(sel, "maintenance_off"); }}>{t.maintenanceOff}</MenuItem>}
+            <MenuItem danger onClick={() => { close(); void runAction(sel, "delete"); }}><TrashIcon size={15} />{t.deleteAction}</MenuItem>
+          </>}
+        </Dropdown>
+      </BatchSelection>
+      {tagPaths && <BatchTagsDialog paths={tagPaths} onClose={() => setTagPaths(null)} onChanged={() => { selection.clear(); tagData.refresh(); refresh(); }} />}
 
       <div className="site-table-area flex min-h-0 flex-1 flex-col">
         {sites.length === 0 ? (
@@ -388,12 +348,13 @@ export default function VhostsView({
           <EmptyState icon={<KindIcon size={26} />} title={t.noMatches} hint={t.noMatchesHint} />
         ) : (
           <Card className="site-table mx-auto w-full shrink-0 overflow-hidden">
-            <div className="site-table-head flex items-center gap-3 border-b border-line-soft">
+            <div data-batch-select className="site-table-head flex items-center gap-3 border-b border-line-soft">
               <Checkbox
-                checked={allSelected}
-                indeterminate={someSelected}
-                onChange={toggleAll}
-                ariaLabel={t.selectAll}
+                checked={selection.allPage}
+                indeterminate={selection.somePage}
+                disabled={anyBusy || (selection.atLimit && !selection.allPage)}
+                onChange={selection.togglePage}
+                ariaLabel={t.batchSelectPage}
               />
               <span aria-live="polite" className="text-xs font-normal text-dim">
                 {t.itemsCount(filtered.length)}
@@ -429,7 +390,8 @@ export default function VhostsView({
                     <span className="relative z-10 flex items-center">
                       <Checkbox
                         checked={selected.has(s.name)}
-                        onChange={() => toggleOne(s.name)}
+                        disabled={anyBusy || (selection.atLimit && !selected.has(s.name))}
+                        onChange={() => selection.toggle(s.name)}
                         ariaLabel={s.name}
                       />
                     </span>

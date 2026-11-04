@@ -65,6 +65,9 @@ func (s *Store) GetSession(sid string) (SessionRecord, error) {
 		return r, err
 	}
 	r.CreatedAt, r.LastSeen, r.ExpiresAt = parseTime(created), parseTime(seen), parseTime(exp)
+	if !time.Now().Before(r.ExpiresAt) {
+		return r, ErrNotFound
+	}
 	return r, nil
 }
 
@@ -74,10 +77,16 @@ func (s *Store) TouchSession(sid, ip string) error {
 	return err
 }
 
-// UpgradeSession raises a session's level (mfa -> full) and extends it.
-func (s *Store) UpgradeSession(sid, level string, ttl time.Duration) error {
+// UpgradeSession rotates the identifier when raising authentication level.
+// A copied password-only cookie must not acquire the verified session's rights.
+func (s *Store) UpgradeSession(sid, level string, ttl time.Duration) (string, error) {
+	replacement, err := newSID()
+	if err != nil {
+		return "", err
+	}
 	exp := time.Now().Add(ttl).UTC().Format(time.RFC3339Nano)
-	return s.touch(`UPDATE user_sessions SET level = ?, expires_at = ? WHERE sid = ?`, level, exp, sid)
+	err = s.touch(`UPDATE user_sessions SET sid = ?, level = ?, expires_at = ? WHERE sid = ? AND expires_at > ?`, replacement, level, exp, sid, now())
+	return replacement, err
 }
 
 // ListSessions returns a user's unexpired sessions, most recent first.

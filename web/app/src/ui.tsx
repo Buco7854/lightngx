@@ -407,6 +407,7 @@ export function Checkbox({
     <span className={`relative inline-flex shrink-0 ${className}`}>
       <input
         type="checkbox"
+        ref={(node) => { if (node) node.indeterminate = indeterminate && !checked; }}
         disabled={disabled}
         checked={checked}
         onChange={onChange}
