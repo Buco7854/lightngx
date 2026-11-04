@@ -3,10 +3,8 @@
 # then `nginx -t` and reload. This vhost is the internet-facing one; for a
 # LAN shortcut copy examples/ui-proxy.conf (:9001) into conf.d too.
 
-map $http_x_forwarded_proto $lngx_fwd_proto {
-    default $http_x_forwarded_proto;
-    ''      $scheme;
-}
+# This listener is an edge: overwrite client-supplied forwarding headers.
+# For a separate TLS terminator, configure a dedicated trusted/internal listener.
 
 server {
     listen 443 ssl;
@@ -25,10 +23,10 @@ server {
     # The OIDC callback must reach the gate too; same server, so it does.
     location / {
         proxy_pass http://127.0.0.1:9000;
-        proxy_set_header Host              $host;
+        proxy_set_header Host              $http_host;
         proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $lngx_fwd_proto;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_buffering off;              # live log stream (SSE)
         proxy_read_timeout 1h;
     }

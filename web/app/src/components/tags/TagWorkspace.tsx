@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { api, type Tag } from "../../api";
 import { useConfirm } from "../../confirm";
 import { useI18n } from "../../i18n";
@@ -18,7 +17,6 @@ import {
 import {
   Badge,
   Btn,
-  Checkbox,
   Dropdown,
   EmptyState,
   Loading,
@@ -29,6 +27,7 @@ import {
 } from "../../ui";
 import { AuthError } from "../auth/fields";
 import { catalogEvent, useFileTags, useTags } from "./useTags";
+import TagPicker from "./TagPicker";
 import TagForm from "./TagForm";
 
 type View = { kind: "list" } | { kind: "edit"; tag?: Tag } | { kind: "delete"; tag: Tag };
@@ -95,7 +94,12 @@ export default function TagWorkspace({
     setBusy(true);
     setError("");
     try {
-      file.setData(await api.setFileTags(path, manual));
+      await api.updateBatchTags(
+        [path],
+        previous.manual.includes(tag.id) ? [] : [tag.id],
+        previous.manual.includes(tag.id) ? [tag.id] : [],
+      );
+      await file.refresh();
       onChanged();
     } catch (err) {
       file.setData(previous);
@@ -114,7 +118,8 @@ export default function TagWorkspace({
       let assignmentError = "";
       if (path && !view.tag && assign && !definition.rules.length && file.data) {
         try {
-          file.setData(await api.setFileTags(path, [...file.data.manual, saved.id]));
+          await api.updateBatchTags([path], [saved.id], []);
+          await file.refresh();
           onChanged();
         } catch (err) {
           assignmentError = t.tagAssignFailed((err as Error).message);
@@ -171,7 +176,7 @@ export default function TagWorkspace({
   }, [error, loadError]);
   // Responsive filter containers can be hidden while this workspace is open.
   // Keep its dialog outside that layout so drafts remain visible on resize.
-  return createPortal(
+  return (
     <Modal
       title={title}
       closeLabel={t.close}
@@ -255,26 +260,28 @@ export default function TagWorkspace({
       )}
       {view.kind === "list" ? (
         <>
-          <div className="tag-workspace-toolbar mb-4 flex items-center gap-2">
-            <SearchInput
-              value={query}
-              onChange={setQuery}
-              placeholder={t.tagSearch}
-              ariaLabel={t.tagSearch}
-              className="min-w-0 flex-1"
-            />
-            <Btn
-              type="button"
-              disabled={busy || (!!path && file.data === null) || catalog.tags.length >= 128}
-              onClick={() => {
-                setError("");
-                setView({ kind: "edit" });
-              }}
-            >
-              <PlusIcon size={15} />
-              {t.tagNew}
-            </Btn>
-          </div>
+          {!path && (
+            <div className="tag-workspace-toolbar mb-4 flex items-center gap-2">
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                placeholder={t.tagSearch}
+                ariaLabel={t.tagSearch}
+                className="min-w-0 flex-1"
+              />
+              <Btn
+                type="button"
+                disabled={busy || catalog.tags.length >= 128}
+                onClick={() => {
+                  setError("");
+                  setView({ kind: "edit" });
+                }}
+              >
+                <PlusIcon size={15} />
+                {t.tagNew}
+              </Btn>
+            </div>
+          )}
           {loading && !catalog.tags.length ? (
             <Loading />
           ) : ordered.length === 0 ? (
@@ -301,12 +308,42 @@ export default function TagWorkspace({
               <p className="mb-3 text-[12px] leading-relaxed text-dim">
                 {path ? t.tagFileHint : t.tagManagerHint}
               </p>
+              {path && (
+                <div className="mb-5">
+                  <TagPicker
+                    tags={catalog.tags
+                      .filter((tag) => !tag.rules.length)
+                      .map((tag) => ({
+                        ...tag,
+                        count: file.data?.manual.includes(tag.id) ? 1 : 0,
+                      }))}
+                    files={1}
+                    disabled={busy || !file.data}
+                    onToggle={(id) => {
+                      const tag = catalog.tags.find((tag) => tag.id === id);
+                      if (tag) void toggle(tag);
+                    }}
+                    onRemove={(id) => {
+                      const tag = catalog.tags.find((tag) => tag.id === id);
+                      if (tag) void toggle(tag);
+                    }}
+                    onCreate={() => {
+                      setError("");
+                      setView({ kind: "edit" });
+                    }}
+                    onEdit={(tag) => {
+                      setError("");
+                      setView({ kind: "edit", tag });
+                    }}
+                  />
+                </div>
+              )}
               <div className="divide-y divide-line-soft rounded-lg border border-line-soft">
-                {grouped.map((tag, index) => {
+                {(path ? smartTags : grouped).map((tag, index) => {
                   const manual = file.data?.manual.includes(tag.id) ?? false;
                   const automatic = file.data?.automatic.includes(tag.id) ?? false;
                   const heading =
-                    index === 0 || (index === manualTags.length && smartTags.length > 0);
+                    index === 0 || (!path && index === manualTags.length && smartTags.length > 0);
                   return (
                     <div key={tag.id}>
                       {heading && (
@@ -317,20 +354,11 @@ export default function TagWorkspace({
                       <div
                         className={`flex items-center gap-3 px-3 py-3 ${manual || automatic ? "bg-accent-soft/30" : ""}`}
                       >
-                        {path && !tag.rules.length ? (
-                          <Checkbox
-                            checked={manual}
-                            disabled={busy || !file.data}
-                            onChange={() => void toggle(tag)}
-                            ariaLabel={t.tagAssignNamed(tag.name)}
-                          />
-                        ) : (
-                          <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tag.rules.length ? "bg-accent-soft text-accent-ink" : "bg-ctrl text-dim"}`}
-                          >
-                            {tag.rules.length ? <BoltIcon size={14} /> : <TagIcon size={14} />}
-                          </span>
-                        )}
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tag.rules.length ? "bg-accent-soft text-accent-ink" : "bg-ctrl text-dim"}`}
+                        >
+                          {tag.rules.length ? <BoltIcon size={14} /> : <TagIcon size={14} />}
+                        </span>
                         <button
                           type="button"
                           disabled={busy}
@@ -423,7 +451,6 @@ export default function TagWorkspace({
           <p className="mt-3 text-xs text-dim">{t.tagDeleteHint}</p>
         </div>
       )}
-    </Modal>,
-    document.body,
+    </Modal>
   );
 }

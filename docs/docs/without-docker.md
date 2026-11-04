@@ -74,7 +74,8 @@ path is untested — reports welcome.
 ## First run
 
 Generate a password hash for the first admin (or skip seeding entirely and
-use the first-run setup page in the browser):
+use the first-run setup page in the browser, with the token from
+`<LN_DATA_DIR>/setup-token`):
 
 ```sh
 lightngx hash    # prompts for a password, prints a bcrypt hash

@@ -17,9 +17,15 @@ import (
 
 const oidcStateCookie = "ln_oidc_state"
 
-// OIDC handles the authorization-code flow with PKCE against a single
-// configured identity provider.
+// ChallengeStore persists and atomically consumes short-lived login state.
+type ChallengeStore interface {
+	SaveChallenge(string, string, time.Time) error
+	ConsumeChallenge(string, string) error
+}
+
+// OIDC handles the authorization-code flow with PKCE against one provider.
 type OIDC struct {
+	challenges  ChallengeStore
 	provider    *oidc.Provider
 	verifier    *oidc.IDTokenVerifier
 	oauth       oauth2.Config
@@ -30,6 +36,7 @@ type OIDC struct {
 }
 
 type OIDCOptions struct {
+	Challenges    ChallengeStore
 	Issuer        string
 	ClientID      string
 	ClientSecret  string
@@ -65,8 +72,9 @@ func NewOIDC(ctx context.Context, opts OIDCOptions, sessions *Sessions) (*OIDC, 
 		provider = p
 	}
 	return &OIDC{
-		provider: provider,
-		verifier: provider.Verifier(&oidc.Config{ClientID: opts.ClientID}),
+		provider:   provider,
+		challenges: opts.Challenges,
+		verifier:   provider.Verifier(&oidc.Config{ClientID: opts.ClientID}),
 		oauth: oauth2.Config{
 			ClientID:     opts.ClientID,
 			ClientSecret: opts.ClientSecret,
@@ -95,6 +103,10 @@ func (o *OIDC) Begin(w http.ResponseWriter, r *http.Request) {
 		Nonce:    randToken(),
 		Verifier: oauth2.GenerateVerifier(),
 		Expires:  time.Now().Add(10 * time.Minute),
+	}
+	if o.challenges == nil || o.challenges.SaveChallenge("oidc", st.State, st.Expires) != nil {
+		http.Error(w, "could not start sign-in", http.StatusServiceUnavailable)
+		return
 	}
 	payload, _ := json.Marshal(st)
 	http.SetCookie(w, &http.Cookie{
@@ -134,6 +146,9 @@ func (o *OIDC) Callback(w http.ResponseWriter, r *http.Request) (string, bool, e
 	}
 	if r.URL.Query().Get("state") != st.State {
 		return "", false, errors.New("state mismatch")
+	}
+	if o.challenges == nil || o.challenges.ConsumeChallenge("oidc", st.State) != nil {
+		return "", false, errors.New("state expired or already used")
 	}
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		return "", false, fmt.Errorf("provider error: %s", errMsg)

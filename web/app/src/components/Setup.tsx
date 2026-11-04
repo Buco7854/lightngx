@@ -17,6 +17,7 @@ export default function Setup({
   setThemePref: (p: ThemePref) => void;
 }) {
   const { t } = useI18n();
+  const [token, setToken] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +28,7 @@ export default function Setup({
     setBusy(true);
     setError("");
     try {
-      await api.setup(username, password);
+      await api.setup(username, password, token.trim());
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "error");
@@ -43,6 +44,16 @@ export default function Setup({
         <p className="mt-1.5 mb-0 text-sm leading-relaxed text-dim">{t.setupIntro}</p>
       </div>
       <form onSubmit={submit} className="flex flex-col gap-3.5">
+        <Field
+          label={t.setupToken}
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+        />
+        <p className="text-xs leading-relaxed text-dim">{t.setupTokenHint}</p>
         <Field
           label={t.username}
           value={username}

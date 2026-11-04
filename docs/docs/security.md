@@ -1,7 +1,9 @@
 # Security
 
-Lightngx is meant to be exposed publicly behind nginx itself, and it is
-hardened for that.
+Lightngx manages nginx configuration and processes. Every account with editing
+access is a trusted server operator, including the `user` role; this is not a
+multi-tenant hosting panel. Public access requires HTTPS and a deliberate
+authentication and proxy configuration.
 
 - State-changing requests require a same-origin `Origin` or `Sec-Fetch-Site`
   header, which blocks cross-site request forgery. Sessions are HMAC-signed,
@@ -31,13 +33,24 @@ hardened for that.
   time limits, including WebAuthn uploads. Live log streams recheck session
   validity before sending each frame and enforce a write deadline, so revoked
   or expired local sessions stop receiving new log data.
-- OIDC uses PKCE together with `state` and `nonce`.
+- First-run setup requires a server-held token from `<LN_DATA_DIR>/setup-token`.
+  It is never returned by a public API and becomes unusable once an admin exists.
+- OIDC uses PKCE, nonce validation, and expiring single-use server-side state.
+  Sessions are registered server-side, so logout revokes copied OIDC cookies.
+  Local password and MFA changes revoke other sessions and remembered devices
+  atomically. A login started before a reset cannot create a session afterward.
+- MFA policy is checked on active local sessions. Authentication-factor changes
+  require recent sign-in/password confirmation. Password verification and OIDC
+  exchanges have separate concurrency bounds to limit resource exhaustion.
+- CSRF checks compare scheme, host, and port. Forwarded transport/client headers
+  are trusted only from loopback nginx or configured proxies. Existing invalid
+  or unreadable key files stop startup instead of being silently overwritten.
 
 ## Recommended front proxy
 
 Terminate TLS at the proxy with HTTP/2, and forward to
-`http://127.0.0.1:9000`. Set `LN_TRUSTED_PROXIES` to the proxy address so
-forwarded client IPs are trusted; on a separate (non-loopback) proxy this also
+`http://127.0.0.1:9000`. Loopback is trusted by default. For a separate proxy,
+set `LN_TRUSTED_PROXIES` to its address so forwarded client IPs are trusted; on a separate (non-loopback) proxy this also
 lets the default `auto` cookie policy see the HTTPS scheme and set `Secure`.
 Force it with `LN_SECURE_COOKIES=true` if you prefer.
 
@@ -45,17 +58,42 @@ The live log stream is server-sent events, so the proxy must not buffer it. Set
 `proxy_buffering off;`. The app also sends `X-Accel-Buffering: no` as a second
 line of defense.
 
+If you copied an older UI proxy example, replace its unconditional
+`$http_x_forwarded_proto`/`$http_x_forwarded_host` maps with the updated edge
+configuration. The shipped templates overwrite those headers using `$scheme`
+and preserve the request authority with `$http_host`. Existing bind-mounted
+nginx configuration is deliberately not overwritten by an image upgrade. A
+separate TLS terminator needs a dedicated, restricted internal proxy setup.
+
 ## Exposing it to the internet
 
-With two-factor enabled, Lightngx should be safe to face the internet. That
-said, a personal opinion from the maintainer: I would not put something this
-sensitive (a tool that edits and reloads your nginx) directly on the public
-internet, and if I did, I would add another authentication layer in front of
-it. A gate at the nginx level means an attacker has to get through your
-identity provider before they ever reach the login page.
+Before publishing the UI:
 
-The [hardened setup](./hardened.md) shows exactly that: an OIDC gate (with a
-TOTP fallback for when your IdP is down) or a standalone TOTP gate, dropped in
-front of the UI with the lua runtime the `:full` image already ships. The
-ready-to-run files are in
+- Terminate HTTPS at the reverse proxy and redirect plain HTTP to HTTPS. Bind
+  the upstream UI port to loopback or keep it on an internal container network.
+  The bundled loopback nginx proxy is trusted automatically; list separate
+  proxy addresses explicitly in `LN_TRUSTED_PROXIES`. Overwrite forwarded headers
+  at the edge instead of trusting headers supplied by external clients.
+- Set `LN_SECURE_COOKIES=true` for a public HTTPS deployment and pin
+  `LN_WEBAUTHN_RPID` and `LN_WEBAUTHN_ORIGINS` to the public hostname/origin.
+- Set `LN_MFA_REQUIRED_ROLES=admin,user` for local accounts. If using OIDC, enforce
+  MFA at the identity provider and set `LN_OIDC_ALLOWED_GROUPS` to trusted
+  operators; an empty allow-list permits any authenticated identity at that
+  provider to edit configuration. Keep the admin-group mapping narrow.
+- Complete setup with the server-held token, or pre-seed a strong admin password
+  hash. Protect and persist the data directory and encryption keys. Keep it
+  outside the configuration directory and all web-served roots.
+- Limit incoming connections and requests at the edge, and monitor the audit
+  log. In-process throttles and concurrency/body/time limits are not a substitute
+  for network-level denial-of-service protection. Keep runtime/base images current.
+
+The [hardened setup](./hardened.md) adds another authentication layer before the
+UI: an OIDC gate (with a TOTP fallback) or a standalone TOTP gate. Its files are in
 [`example/hardened/`](https://github.com/buco7854/lightngx/tree/main/example/hardened).
+
+The implementation review follows the relevant OWASP guidance on
+[authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html),
+[session revocation](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html),
+and [origin verification](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html).
+Regression tests and dependency scans check specific failure modes. They do not
+constitute an independent penetration test or guarantee against every attack.

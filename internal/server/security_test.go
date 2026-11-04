@@ -36,6 +36,7 @@ import (
 )
 
 type securityFixture struct {
+	dbPath  string
 	s       *Server
 	db      *store.Store
 	user    store.User
@@ -44,7 +45,8 @@ type securityFixture struct {
 
 func newSecurityFixture(t *testing.T) *securityFixture {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "db"), bytes.Repeat([]byte{1}, 32))
+	dbPath := filepath.Join(t.TempDir(), "db")
+	db, err := store.Open(dbPath, bytes.Repeat([]byte{1}, 32))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,20 +55,24 @@ func newSecurityFixture(t *testing.T) *securityFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := &config.Config{}
+	cfg := &config.Config{DataDir: t.TempDir()}
 	acct, err := accounts.New(db, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sessions := auth.NewSessions(bytes.Repeat([]byte{2}, 32), time.Hour, func(*http.Request) bool { return true })
 	s := New(cfg, sessions, nil, nil, nil, nil, nil, nil, acct, webauthnx.New("example.test", []string{"https://example.test"}), nil)
-	return &securityFixture{s, db, user, s.Handler()}
+	return &securityFixture{dbPath: dbPath, s: s, db: db, user: user, handler: s.Handler()}
 }
 func (f *securityFixture) cookie(t *testing.T, level string) *http.Cookie {
 	t.Helper()
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "https://example.test", nil)
-	if err := f.s.issueSession(w, r, f.user, "local", level); err != nil {
+	u, err := f.db.GetUser(f.user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.s.issueSession(w, r, u, "local", level); err != nil {
 		t.Fatal(err)
 	}
 	return w.Result().Cookies()[0]
@@ -131,7 +137,7 @@ func TestStaleEnrollmentCannotReplaceEstablishedMFA(t *testing.T) {
 
 // A valid ES256 software authenticator with a zero sign counter models the
 // counter behavior permitted for passkeys; replay protection must use challenges.
-func softwareAssertion(t *testing.T, f *securityFixture) func(string) string {
+func softwareAssertion(t *testing.T, f *securityFixture, counters ...uint32) func(string) string {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -154,7 +160,10 @@ func softwareAssertion(t *testing.T, f *securityFixture) func(string) string {
 	return func(challenge string) string {
 		client, _ := json.Marshal(map[string]any{"type": "webauthn.get", "challenge": challenge, "origin": "https://example.test", "crossOrigin": false})
 		rpHash := sha256.Sum256([]byte("example.test"))
-		authData := append(rpHash[:], 5, 0, 0, 0, 0) // UP + UV, counter zero.
+		authData := append(rpHash[:], 5, 0, 0, 0, 0)
+		if len(counters) > 0 {
+			binary.BigEndian.PutUint32(authData[len(authData)-4:], counters[0])
+		} // UP + UV, counter zero.
 		clientHash := sha256.Sum256(client)
 		signed := sha256.Sum256(append(append([]byte{}, authData...), clientHash[:]...))
 		signature, err := ecdsa.SignASN1(rand.Reader, key, signed[:])

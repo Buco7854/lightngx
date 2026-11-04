@@ -11,6 +11,7 @@ export default function TagForm({
   formId,
   path,
   busy,
+  manualOnly = false,
   onDirty,
   onSave,
 }: {
@@ -18,6 +19,7 @@ export default function TagForm({
   formId: string;
   path?: string;
   busy: boolean;
+  manualOnly?: boolean;
   onDirty: (dirty: boolean) => void;
   onSave: (definition: Omit<Tag, "id">, assign: boolean) => Promise<void>;
 }) {
@@ -75,6 +77,7 @@ export default function TagForm({
           </label>
           <Input
             id={nameId}
+            autoFocus={manualOnly}
             required
             maxLength={48}
             value={name}
@@ -82,24 +85,26 @@ export default function TagForm({
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-        <div className="space-y-2.5">
-          <span className="block text-[13px] font-medium text-dim">{t.tagType}</span>
-          <Segmented
-            value={type}
-            onChange={(value) => {
-              setType(value);
-              if (value === "smart" && !rules.length) addRule();
-            }}
-            options={[
-              { value: "manual", label: t.tagManual },
-              { value: "smart", label: t.tagSmart },
-            ]}
-            ariaLabel={t.tagType}
-          />
-          <p className="text-xs leading-relaxed text-dim">
-            {type === "smart" ? t.tagSmartHint : t.tagManualHint}
-          </p>
-        </div>
+        {!manualOnly && (
+          <div className="space-y-2.5">
+            <span className="block text-[13px] font-medium text-dim">{t.tagType}</span>
+            <Segmented
+              value={type}
+              onChange={(value) => {
+                setType(value);
+                if (value === "smart" && !rules.length) addRule();
+              }}
+              options={[
+                { value: "manual", label: t.tagManual },
+                { value: "smart", label: t.tagSmart },
+              ]}
+              ariaLabel={t.tagType}
+            />
+            <p className="text-xs leading-relaxed text-dim">
+              {type === "smart" ? t.tagSmartHint : t.tagManualHint}
+            </p>
+          </div>
+        )}
         {type === "smart" && (
           <div className="space-y-3 border-t border-line-soft pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">

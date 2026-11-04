@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useId, type ReactNode } from "react";
 import { AlertTriangleIcon, InfoIcon } from "./icons";
 import { useI18n } from "./i18n";
 import { Btn, Input, Modal, ModalActions } from "./ui";
@@ -52,6 +52,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [value, setValue] = useState("");
   const [value2, setValue2] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
+  const confirmInputId = useId();
 
   const ask = useCallback(
     (opts: ConfirmOptions) =>
@@ -108,6 +110,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
 
         {confirmP && (
           <Modal
+            closeLabel={t.close}
             title={confirmP.opts.title}
             hint={confirmP.opts.message}
             size="sm"
@@ -137,23 +140,25 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
         )}
 
         {promptP && (
-          <Modal title={promptP.opts.title} size="sm" onClose={() => closePrompt(null)}>
+          <Modal closeLabel={t.close} title={promptP.opts.title} size="sm" onClose={() => closePrompt(null)}>
             {(() => {
               const o = promptP.opts;
               const mismatch = !!o.confirm && value2.length > 0 && value !== value2;
-              const valid = value.trim().length > 0 && (!o.confirm || value === value2);
+              const valid = (o.type === "password" ? value.length : value.trim().length) > 0 && (!o.confirm || value === value2);
               return (
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (valid) closePrompt(value.trim());
+                    if (valid) closePrompt(o.type === "password" ? value : value.trim());
                   }}
                 >
                   {o.label && (
-                    <label className="mb-1.5 block text-[13px] font-medium text-dim">{o.label}</label>
+                    <label htmlFor={inputId} className="mb-1.5 block text-[13px] font-medium text-dim">{o.label}</label>
                   )}
                   <Input
                     ref={inputRef}
+                    id={inputId}
+                    autoComplete={o.type === "password" ? o.confirm ? "new-password" : "current-password" : undefined}
                     type={o.type}
                     value={value}
                     placeholder={o.placeholder}
@@ -161,10 +166,12 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                   />
                   {o.confirm && (
                     <>
-                      <label className="mt-3.5 mb-1.5 block text-[13px] font-medium text-dim">
+                      <label htmlFor={confirmInputId} className="mt-3.5 mb-1.5 block text-[13px] font-medium text-dim">
                         {o.confirmLabelText ?? t.confirmPassword}
                       </label>
                       <Input
+                        id={confirmInputId}
+                        autoComplete={o.type === "password" ? "new-password" : undefined}
                         type={o.type}
                         value={value2}
                         placeholder={t.confirmPasswordHint}

@@ -30,14 +30,15 @@ const (
 
 // Session is the authenticated principal carried by the session cookie.
 type Session struct {
-	UserID    int64     `json:"id"`
-	User      string    `json:"u"`
-	Role      string    `json:"r"`
-	Method    string    `json:"m"` // "local" or "oidc"
-	Level     string    `json:"l"` // LevelFull / LevelMFA / LevelEnroll
-	Sid       string    `json:"s"` // session id (local sessions; empty for oidc)
-	IssuedAt  time.Time `json:"iat"`
-	ExpiresAt time.Time `json:"exp"`
+	VerifiedAt time.Time `json:"-"`
+	UserID     int64     `json:"id"`
+	User       string    `json:"u"`
+	Role       string    `json:"r"`
+	Method     string    `json:"m"` // "local" or "oidc"
+	Level      string    `json:"l"` // LevelFull / LevelMFA / LevelEnroll
+	Sid        string    `json:"s"` // server-side session id
+	IssuedAt   time.Time `json:"iat"`
+	ExpiresAt  time.Time `json:"exp"`
 }
 
 // IsAdmin reports whether the session principal has the admin role.
@@ -73,39 +74,56 @@ func LoadOrCreateSecret(configured, dataDir string) ([]byte, error) {
 		}
 		return []byte(configured), nil
 	}
-	path := filepath.Join(dataDir, "session.key")
-	if b, err := os.ReadFile(path); err == nil && len(b) >= 32 {
-		return b, nil
-	}
-	key := make([]byte, 32)
-	if _, err := rand.Read(key); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(dataDir, 0o700); err != nil {
-		return nil, fmt.Errorf("data dir: %w", err)
-	}
-	if err := os.WriteFile(path, key, 0o600); err != nil {
-		return nil, fmt.Errorf("persist session key: %w", err)
-	}
-	return key, nil
+	return loadOrCreateKey(dataDir, "session.key", false)
 }
 
-// LoadOrCreateDataKey returns a persistent 32-byte at-rest encryption key,
-// independent of the session secret so the latter can be rotated freely.
+// LoadOrCreateDataKey is independent of session signing and fails closed when
+// an existing key is unreadable or damaged. Never overwrite an encryption key.
 func LoadOrCreateDataKey(dataDir string) ([]byte, error) {
-	path := filepath.Join(dataDir, "data.key")
-	if b, err := os.ReadFile(path); err == nil && len(b) == 32 {
+	return loadOrCreateKey(dataDir, "data.key", true)
+}
+
+func loadOrCreateKey(dataDir, name string, exact bool) ([]byte, error) {
+	path := filepath.Join(dataDir, name)
+	b, err := os.ReadFile(path)
+	if err == nil {
+		if (exact && len(b) != 32) || (!exact && len(b) < 32) {
+			return nil, fmt.Errorf("%s: invalid key length; restore the original key", name)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		}
+		if info.Mode().Perm()&0077 != 0 {
+			if err := os.Chmod(path, 0600); err != nil {
+				return nil, err
+			}
+		}
 		return b, nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	if err := os.MkdirAll(dataDir, 0700); err != nil {
+		return nil, err
 	}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(dataDir, 0o700); err != nil {
-		return nil, fmt.Errorf("data dir: %w", err)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("create %s: %w", name, err)
 	}
-	if err := os.WriteFile(path, key, 0o600); err != nil {
-		return nil, fmt.Errorf("persist data key: %w", err)
+	defer file.Close()
+	if _, err := file.Write(key); err != nil {
+		return nil, err
+	}
+	if err := file.Sync(); err != nil {
+		return nil, err
+	}
+	if err := file.Close(); err != nil {
+		return nil, err
 	}
 	return key, nil
 }
@@ -207,4 +225,15 @@ func (s *Sessions) FromRequest(r *http.Request) (*Session, error) {
 		return nil, ErrInvalidSession
 	}
 	return &sess, nil
+}
+
+// BootstrapToken proves access to the server's secret during first-run setup.
+// Domain separation prevents this value from being used as a session signature.
+func (s *Sessions) BootstrapToken() string {
+	mac := hmac.New(sha256.New, s.secret)
+	mac.Write([]byte("lightngx:first-admin:v1"))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+func (s *Sessions) ValidBootstrapToken(token string) bool {
+	return hmac.Equal([]byte(token), []byte(s.BootstrapToken()))
 }

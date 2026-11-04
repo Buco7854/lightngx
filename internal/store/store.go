@@ -1,6 +1,6 @@
 // Package store persists local users, their MFA enrollment and app
 // settings in a single SQLite file (pure-Go driver, no cgo). TOTP secrets
-// are encrypted at rest with a key derived from the app session secret.
+// are encrypted with an independent, persistent at-rest key.
 package store
 
 import (
@@ -26,6 +26,7 @@ type Store struct {
 
 // User is the non-sensitive view of an account.
 type User struct {
+	AuthVersion   int64     `json:"-"`
 	ID            int64     `json:"id"`
 	Username      string    `json:"username"`
 	Role          string    `json:"role"`
@@ -92,6 +93,10 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     expires_at  TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);
+CREATE TABLE IF NOT EXISTS oidc_sessions (
+    sid TEXT PRIMARY KEY, username TEXT NOT NULL, role TEXT NOT NULL,
+    created_at TEXT NOT NULL, expires_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS auth_challenges (
     challenge TEXT PRIMARY KEY,
     purpose TEXT NOT NULL,
@@ -162,6 +167,12 @@ CREATE TABLE IF NOT EXISTS api_keys (
 		!strings.Contains(err.Error(), "duplicate column") {
 		return err
 	}
+	if _, err := s.db.Exec("ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0"); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+		return err
+	}
+	if _, err := s.db.Exec("ALTER TABLE user_sessions ADD COLUMN verified_at INTEGER NOT NULL DEFAULT 0"); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+		return err
+	}
 	return nil
 }
 
@@ -178,7 +189,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 	var totpSecret string
 	var totpConfirmed int
 	if err := row.Scan(&u.ID, &u.Username, &u.Role, &totpSecret, &totpConfirmed,
-		&created, &updated, &u.WebAuthnCount); err != nil {
+		&created, &updated, &u.WebAuthnCount, &u.AuthVersion); err != nil {
 		return u, err
 	}
 	u.TOTPEnrolled = totpConfirmed == 1 && totpSecret != ""
@@ -191,7 +202,7 @@ func scanUser(row interface{ Scan(...any) error }) (User, error) {
 // so a single row query is self-contained — no nested query while a rows
 // cursor is open (which would deadlock the single-connection pool).
 const userCols = "id, username, role, totp_secret, totp_confirmed, created_at, updated_at, " +
-	"(SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = users.id)"
+	"(SELECT COUNT(*) FROM webauthn_credentials WHERE user_id = users.id), auth_version"
 
 // CountAdmins returns the number of admin accounts.
 func (s *Store) CountAdmins() (int, error) {
@@ -298,7 +309,7 @@ func (s *Store) ListUsers() ([]User, error) {
 var ErrLastAdmin = errors.New("cannot remove the last admin")
 
 func (s *Store) SetPassword(id int64, hash string) error {
-	return s.touch(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`, hash, now(), id)
+	return s.ChangePassword(id, hash, "", nil)
 }
 
 // SetRole changes a role, refusing to demote the last admin atomically.

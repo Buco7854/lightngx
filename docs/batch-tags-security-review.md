@@ -1,44 +1,77 @@
-# Batch tags and authentication hardening
+# Tag picker and internet-facing security review
 
-This change keeps the existing Lightngx workspace, typography, colors, and shared
-controls. Sites, Streams, and Configuration now answer the same selection
-question: which files will this action affect? Page selection is separate from
-the explicit selection of up to 200 matching files. The tag dialog applies an
-add/remove delta, shows coverage, and offers manual-tag creation in context.
+The existing Lightngx workspace and shared controls are retained. File and batch
+assignment share one searchable multi-select and removable label chips. Batch
+edits stage additions and removals together, preview their effects, support
+individual undo, and save in one transaction. Creation reuses the existing tag
+form; a new batch label is assigned only after Apply changes. The shared modal
+now portals consistently so a nested discard/password dialog is visible and
+focused above its caller. Password prompts preserve whitespace and have linked
+labels. Smart tags remain rule-driven.
 
-Bulk writes validate every canonical file and tag before applying one SQLite
-transaction. Coverage queries use the path index and only inspect the selected
-files' metadata. Smart tags are never assignable; unrelated manual labels remain
-intact. Internal aliases are counted once. Failed writes preserve selection and
-can be retried idempotently.
+## Security scope and fixes
+
+The review covered the public authentication endpoints, cookie/session lifecycle,
+MFA setup/removal and policy, authorization boundaries, proxy/origin handling,
+file/log confinement, and dependencies. It produced these concrete changes:
+
+- First-admin setup requires a server-held token, rather than allowing the first
+  public visitor to claim an uninitialized instance. The private token is removed
+  after setup and is never returned through a public API.
+- OIDC state is single-use server-side, including failed exchanges. OIDC sessions
+  have a revocation registry, so logout invalidates copied cookies. Existing
+  stateless OIDC cookies require a fresh login after this upgrade.
+- Password/reset changes and session/trusted-device revocation are atomic.
+  Credential versions reject a login decision that was computed before a reset.
+  Combined admin role/password edits roll back together on storage failure.
+- MFA enrollment/removal revokes other devices atomically. Required MFA is checked
+  on active sessions, including after role/policy changes. Modifying factors from
+  a full session requires recent authentication or password confirmation.
+- Password checks, public passkey work, and OIDC exchanges have bounded, separate
+  concurrency. WebAuthn verification and counter writes serialize with factor
+  changes; uploads are read within limits before taking the MFA lock.
+- Origin checks include scheme, host and port. WebAuthn and cookies use transport
+  metadata only from trusted hops. Client-IP extraction trusts bundled loopback
+  nginx and explicit proxies, then walks the chain from the right. Edge templates
+  overwrite client-supplied forwarding headers. Previously copied templates need
+  the corresponding manual update; existing nginx files are preserved on upgrade.
+- Invalid/unreadable persistent keys stop startup instead of being overwritten.
+  Application JSON decoding rejects trailing values. Anonymous/partial sessions and nginx API
+  keys remain barred from configuration, log and account APIs.
 
 ## Verification
 
-- Go vet and the complete race test suite pass. Regression tests cover atomic
-  batch rollback, label preservation, aliases, confinement, bounds, authentication,
-  CSRF, one-use WebAuthn challenges, expiry, MFA session rotation, TOTP replay and
-  throttling, stale enrollment, bounded concurrent rate limiting, oversized
-  uploads, and revocation during an active log stream.
-- The frontend production build passes; its dependency audit has no findings.
-  The Go vulnerability scan has no module, package, or symbol findings after
-  pinning the upstream OpenPGP-removal revision of `x/crypto`. Existing docs-only
-  low/moderate advisories remain described in the development guide.
-- Playwright against the embedded production frontend checked add/remove,
-  preservation, coverage, smart-tag exclusion, staged inline creation, failure
-  recovery, Config integration, page selection, explicit matching selection,
-  the 200-file bound, filter reset, keyboard containment, and focus restoration.
-- Rendered review covered 1440, 768, 390, and 320 CSS pixels, English and French,
-  light and dark. Axe scans of the new dialog passed in both languages and
-  themes. Screenshots led to shorter operation tabs, an icon menu on phones,
-  stacked coverage labels on narrow screens, and a wrapping creation form and
-  footer. The existing shared modal, segmented control, dropdown, search,
-  checkbox, button, and input components are reused.
+Go vet, the complete race suite, frontend and docs builds pass. Go vulnerability
+checks and the frontend audit have no findings. Existing docs-only low/moderate
+advisories remain documented in the development guide.
 
-The app-screen inspector was run on a static capture of the authenticated
-dialog, with fonts and CSS embedded because it does not support authenticated
-sessions. Its overlay-shadow and covered-background-text checks were allowed
-for the open modal; its example-domain check was allowed for the temporary nginx
-fixtures. Small text is limited to metadata, coverage, and hints. These fixture
-configs and captures are not shipped. No new visual direction or sample product
-data was introduced. Physical authenticators, screen readers, real nginx reloads,
-and production identity providers were not exercised by these fixture checks.
+Regression tests cover setup-token enforcement, authorization matrices, copied
+OIDC cookies after logout, OAuth state replay, proxy spoofing and scheme mismatch,
+MFA policy on active sessions, recent-auth requirements, concurrent authenticator
+counter reuse, stale login after reset, transactional failure during revocation,
+combined account-update rollback, corrupt keys, and mixed tag-delta rollback.
+Earlier replay, CSRF, confinement, body-limit, batch-bound and live-stream
+revocation tests remain in the suite.
+
+Playwright against the embedded production frontend checked partial label states,
+mixed edits, per-label undo, creation staging, discard confirmation and recovery,
+failed-save retry, shared single-file assignment/editing, keyboard navigation,
+focus, and axe scans. A fresh instance exercised invalid/valid setup tokens,
+required TOTP enrollment, partial-cookie invalidation, and recent-password
+confirmation (including passwords with surrounding whitespace and wrong-password
+retry). Existing negative-rule workflows also passed. Rendered reviews covered
+1440, 768, 390 and 320 CSS pixels, English/French and light/dark, including open
+pickers and creation forms. Temporary nginx fixtures and captures are not shipped.
+
+The app-screen inspector uses a static authenticated capture with embedded CSS
+and fonts. Overlay shadows/covered background text are appropriate to a modal;
+example domains belong to temporary fixtures. Small metadata text follows the
+existing workspace scale. No new visual direction or sample product data was
+introduced.
+
+This is an implementation review with regression tests, not an independent
+penetration test. Real identity-provider integration, physical authenticators,
+screen readers, live nginx TLS/reload, and network-level denial-of-service tests
+were not exercised. Every editing account is a trusted nginx operator. Public
+exposure requires the HTTPS, proxy, MFA/SSO-group and data-directory settings in
+the security guide; provider-side claim changes take effect on new login/expiry.

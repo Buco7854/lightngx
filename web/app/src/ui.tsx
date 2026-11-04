@@ -603,7 +603,7 @@ export function Modal({
     };
   }, [modalId]);
   const maxW = size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-lg" : "max-w-md";
-  return (
+  return createPortal(
     <div
       className={`modal-backdrop ${mobileSheet ? "mobile-sheet" : ""} anim-fade fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4`}
       onPointerDownCapture={(e) => {
@@ -646,7 +646,8 @@ export function Modal({
         <div className="min-h-0 overflow-y-auto px-5 pt-4 pb-5">{children}</div>
         {footer && <div className="shrink-0 border-t border-line-soft px-5 py-4">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -840,20 +841,26 @@ export function Combobox({
   search,
   emptyLabel = "—",
   disabled = false,
+  searchPlaceholder,
   wrapLabel = false,
+  multi,
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; description?: string }[];
   ariaLabel: string;
   placeholder?: string;
   className?: string;
   search?: boolean;
   emptyLabel?: string;
   disabled?: boolean;
+  searchPlaceholder?: string;
   wrapLabel?: boolean;
+  multi?: { selected: string[]; mixed?: string[]; summary: string; doneLabel: string };
 }) {
   const listId = useId();
+  const isSelected = (id: string) => (multi ? multi.selected.includes(id) : id === value);
+  const isMixed = (id: string) => multi?.mixed?.includes(id) ?? false;
   const showSearch = search ?? options.length > 8;
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -864,7 +871,9 @@ export function Combobox({
   const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options;
   const focusTarget = useRef<"selected" | "first" | "last">("selected");
   const focusOption = (which: "selected" | "first" | "last") => {
-    const buttons = menu.menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+    const buttons = menu.menuRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="option"]:not(:disabled)',
+    );
     if (!buttons?.length) return;
     const index =
       which === "last"
@@ -873,7 +882,7 @@ export function Combobox({
           ? 0
           : Math.max(
               0,
-              filtered.findIndex((o) => o.value === value),
+              filtered.findIndex((o) => isSelected(o.value)),
             );
     buttons[index]?.focus();
   };
@@ -919,7 +928,7 @@ export function Combobox({
         <span
           className={`min-w-0 flex-1 text-left ${wrapLabel ? "break-words whitespace-normal" : "truncate"} ${selected ? "" : "text-dim"}`}
         >
-          {selected?.label ?? placeholder}
+          {multi ? multi.summary : (selected?.label ?? placeholder)}
         </span>
         <ChevronDownIcon size={15} className="shrink-0 text-faint" aria-hidden />
       </button>
@@ -939,6 +948,7 @@ export function Combobox({
                 />
                 <input
                   ref={inputRef}
+                  placeholder={searchPlaceholder}
                   value={query}
                   onKeyDown={(e) => {
                     if (e.key === "ArrowDown") {
@@ -956,12 +966,15 @@ export function Combobox({
               id={listId}
               role="listbox"
               aria-label={ariaLabel}
+              aria-multiselectable={multi ? true : undefined}
               className="max-h-72 overflow-auto"
               onKeyDown={(e) => {
                 if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
                 e.preventDefault();
                 const buttons = Array.from(
-                  e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'),
+                  e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                    '[role="option"]:not(:disabled)',
+                  ),
                 );
                 const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
                 const next =
@@ -980,34 +993,96 @@ export function Combobox({
                 filtered.map((o) => (
                   <button
                     key={o.value}
+                    disabled={disabled}
                     role="option"
-                    aria-selected={o.value === value}
+                    aria-selected={isSelected(o.value)}
+                    aria-label={o.description ? `${o.label}, ${o.description}` : o.label}
                     tabIndex={-1}
                     type="button"
                     onClick={() => {
                       onChange(o.value);
-                      menu.close();
-                      menu.anchorRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+                      if (!multi) {
+                        menu.close();
+                        menu.anchorRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+                      }
                     }}
-                    className={`flex min-h-[36px] w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-[13px] hover:bg-hov-raise ${
-                      o.value === value ? "font-medium text-accent-ink" : ""
+                    className={`flex ${multi ? "min-h-[48px] py-1.5" : "min-h-[36px]"} w-full cursor-pointer items-center gap-2 rounded-lg px-3 text-left text-[13px] hover:bg-hov-raise ${
+                      isSelected(o.value) ? "font-medium text-accent-ink" : ""
                     }`}
                     title={o.label}
                   >
+                    {multi && (
+                      <span
+                        aria-hidden
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${isSelected(o.value) ? "border-accent bg-accent text-accent-fg" : "border-ctrl-hi"}`}
+                      >
+                        {isSelected(o.value) ? (
+                          <CheckIcon size={13} />
+                        ) : isMixed(o.value) ? (
+                          <span className="h-0.5 w-2.5 bg-dim" />
+                        ) : null}
+                      </span>
+                    )}
                     <span
                       className={`min-w-0 flex-1 ${wrapLabel ? "break-words whitespace-normal" : "truncate"}`}
                     >
-                      {o.label}
+                      <span className="block">{o.label}</span>
+                      {o.description && (
+                        <span className="block text-xs font-normal text-dim">{o.description}</span>
+                      )}
                     </span>
-                    {o.value === value && <CheckIcon size={14} className="shrink-0" />}
+                    {!multi && isSelected(o.value) && <CheckIcon size={14} className="shrink-0" />}
                   </button>
                 ))
               )}
             </div>
+            {multi && (
+              <div className="mt-1 border-t border-line-soft pt-1">
+                <Btn
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    menu.close();
+                    menu.anchorRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+                  }}
+                >
+                  {multi.doneLabel}
+                </Btn>
+              </div>
+            )}
           </div>,
           document.body,
         )}
     </div>
+  );
+}
+
+// Multi-select shares placement, search, keyboard navigation and modal ownership
+// with the single-select combobox. onToggle changes one option without closing.
+export function MultiCombobox({
+  selected,
+  mixed,
+  summary,
+  doneLabel,
+  onToggle,
+  ...props
+}: Omit<Parameters<typeof Combobox>[0], "value" | "onChange" | "multi"> & {
+  selected: string[];
+  mixed?: string[];
+  summary: string;
+  doneLabel: string;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <Combobox
+      {...props}
+      value=""
+      onChange={onToggle}
+      search
+      multi={{ selected, mixed, summary, doneLabel }}
+    />
   );
 }
 

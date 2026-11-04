@@ -9,6 +9,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"github.com/Buco7854/lightngx/internal/auth"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -20,6 +22,7 @@ import (
 )
 
 type Manager struct {
+	trusted     []*net.IPNet
 	rpID        string
 	rpOrigins   []string
 	displayName string
@@ -27,8 +30,12 @@ type Manager struct {
 
 // New builds a manager. rpID/origins may be empty, in which case they are
 // derived per-request from the browser origin.
-func New(rpID string, origins []string) *Manager {
-	return &Manager{rpID: rpID, rpOrigins: origins, displayName: "Lightngx"}
+func New(rpID string, origins []string, proxies ...[]*net.IPNet) *Manager {
+	var trusted []*net.IPNet
+	if len(proxies) > 0 {
+		trusted = proxies[0]
+	}
+	return &Manager{rpID: rpID, rpOrigins: origins, displayName: "Lightngx", trusted: trusted}
 }
 
 // forRequest builds a WebAuthn relying party matching this request. The
@@ -36,15 +43,11 @@ func New(rpID string, origins []string) *Manager {
 // scheme://host. Explicit config overrides both.
 func (m *Manager) forRequest(r *http.Request) (*webauthn.WebAuthn, error) {
 	host := r.Host
-	if h, _, ok := strings.Cut(host, ":"); ok {
-		host = h
+	if parsed, _, err := net.SplitHostPort(host); err == nil {
+		host = parsed
 	}
-	scheme := "https"
-	if xf := r.Header.Get("X-Forwarded-Proto"); xf != "" {
-		scheme = xf
-	} else if r.TLS == nil {
-		scheme = "http"
-	}
+	host = strings.Trim(host, "[]")
+	scheme := auth.RequestScheme(r, m.trusted)
 	rpID := m.rpID
 	if rpID == "" {
 		rpID = host
@@ -131,7 +134,7 @@ func (m *Manager) BeginRegister(r *http.Request, st *store.Store, u store.User) 
 }
 
 // FinishRegister validates the attestation and persists the credential.
-func (m *Manager) FinishRegister(r *http.Request, st *store.Store, u store.User, sd *SessionData, name string) error {
+func (m *Manager) FinishRegister(r *http.Request, st *store.Store, u store.User, sd *SessionData, name string, keepSID string) error {
 	w, err := m.forRequest(r)
 	if err != nil {
 		return err
@@ -151,7 +154,7 @@ func (m *Manager) FinishRegister(r *http.Request, st *store.Store, u store.User,
 	if name = strings.TrimSpace(name); name == "" {
 		name = "Security key"
 	}
-	return st.AddCredential(u.ID, encodeID(cred.ID), name, data)
+	return st.AddCredentialForSession(u.ID, encodeID(cred.ID), name, data, keepSID)
 }
 
 // BeginLogin starts an assertion for a user known by username.

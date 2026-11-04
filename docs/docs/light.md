@@ -29,7 +29,15 @@ docker compose up -d
 ```
 
 **On the machine running it**, open **`http://localhost:9000`**: the first visit
-is a setup page where you create the first administrator.
+is a setup page where you create the first administrator. Read the setup token
+from the container, then paste it into that page:
+
+```sh
+docker compose exec nginx cat /var/lib/lightngx/setup-token
+```
+
+The token proves access to this server. It is required only until the first
+admin is created. Use your service name if it differs from `nginx`.
 
 [Configuration](./configuration.md) is the full list of `LN_*` variables. To use
 one that is not in the `.env` above, add it to the compose's `environment:` list
@@ -132,8 +140,8 @@ like this:
 ```nginx
 location / {
     proxy_pass http://127.0.0.1:9000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header X-Forwarded-Proto $scheme;
 
     # The live log stream is server-sent events; do not buffer it.
@@ -164,7 +172,8 @@ echo "LN_SESSION_SECRET=$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
 
-Then open `http://localhost:9000` and create the first administrator.
+Then open `http://localhost:9000` and create the first administrator using the
+server-held setup token described above.
 
 ## Next steps
 

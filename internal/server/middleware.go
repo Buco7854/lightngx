@@ -59,7 +59,7 @@ func (s *Server) requestLimits(next http.Handler) http.Handler {
 // send Sec-Fetch-Site and/or Origin on such requests; a cookie-authenticated
 // request carrying neither is rejected. Token-authenticated (no cookie)
 // clients such as scripts are not a CSRF vector and may omit both.
-func csrfProtect(next http.Handler) http.Handler {
+func csrfProtect(next http.Handler, trusted []*net.IPNet) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
@@ -75,7 +75,7 @@ func csrfProtect(next http.Handler) http.Handler {
 		}
 		if origin != "" {
 			u, err := url.Parse(origin)
-			if err != nil || !strings.EqualFold(u.Host, r.Host) {
+			if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" || !strings.EqualFold(u.Scheme, auth.RequestScheme(r, trusted)) || !strings.EqualFold(u.Host, r.Host) {
 				reject()
 				return
 			}
@@ -101,14 +101,7 @@ func (s *Server) clientIP(r *http.Request) string {
 	if peer == nil {
 		return host
 	}
-	trusted := false
-	for _, cidr := range s.cfg.TrustedProxies {
-		if cidr.Contains(peer) {
-			trusted = true
-			break
-		}
-	}
-	if !trusted {
+	if !auth.TrustedProxy(peer, s.cfg.TrustedProxies) {
 		return host
 	}
 	xff := r.Header.Get("X-Forwarded-For")
@@ -122,14 +115,7 @@ func (s *Server) clientIP(r *http.Request) string {
 		if ip == nil {
 			continue
 		}
-		inTrusted := false
-		for _, cidr := range s.cfg.TrustedProxies {
-			if cidr.Contains(ip) {
-				inTrusted = true
-				break
-			}
-		}
-		if !inTrusted {
+		if !auth.TrustedProxy(ip, s.cfg.TrustedProxies) {
 			return ip.String()
 		}
 	}
@@ -140,18 +126,32 @@ func (s *Server) clientIP(r *http.Request) string {
 // local session is looked up in the session store, so it is rejected the
 // moment it is revoked (logout, individual revoke, password/MFA reset) or its
 // user is deleted, and its role is read live so a demotion takes effect at
-// once. OIDC sessions stay stateless.
+// once. OIDC sessions are also checked against their server-side registry.
 func (s *Server) liveSession(r *http.Request) (*auth.Session, bool) {
 	tok, err := s.sessions.FromRequest(r)
 	if err != nil {
 		return nil, false
 	}
+	if tok.Method == "oidc" {
+		rec, err := s.accounts.Store().GetOIDCSession(tok.Sid)
+		if err != nil {
+			return nil, false
+		}
+		return &auth.Session{User: rec.Username, Role: rec.Role, Method: "oidc", Level: auth.LevelFull, Sid: rec.Sid, IssuedAt: rec.CreatedAt, ExpiresAt: rec.ExpiresAt}, true
+	}
 	if tok.Method != "local" {
-		return tok, true
+		return nil, false
 	}
 	rec, err := s.accounts.Store().GetSession(tok.Sid)
 	if err != nil {
 		return nil, false
+	}
+	required, err := s.accounts.RoleRequiresMFA(rec.Role)
+	if err != nil {
+		return nil, false
+	}
+	if rec.Level == auth.LevelFull && required && !rec.MFAEnrolled {
+		rec.Level = auth.LevelEnroll
 	}
 	if time.Since(rec.LastSeen) > time.Minute {
 		_ = s.accounts.Store().TouchSession(rec.Sid, s.clientIP(r))
@@ -159,7 +159,7 @@ func (s *Server) liveSession(r *http.Request) (*auth.Session, bool) {
 	return &auth.Session{
 		UserID: rec.UserID, User: rec.Username, Role: rec.Role,
 		Method: rec.Method, Level: rec.Level, Sid: rec.Sid,
-		IssuedAt: rec.CreatedAt, ExpiresAt: rec.ExpiresAt,
+		IssuedAt: rec.CreatedAt, ExpiresAt: rec.ExpiresAt, VerifiedAt: rec.VerifiedAt,
 	}, true
 }
 

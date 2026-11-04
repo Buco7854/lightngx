@@ -12,6 +12,8 @@ const maxTagBatchFiles = 200
 // path before writing so a missing or external file cannot cause partial work.
 func (s *Server) handleBatchFileTags(w http.ResponseWriter, r *http.Request) {
 	var req struct {
+		Add       []int64  `json:"add"`
+		Remove    []int64  `json:"remove"`
 		Paths     []string `json:"paths"`
 		Tags      []int64  `json:"tags"`
 		Operation string   `json:"operation"`
@@ -23,9 +25,34 @@ func (s *Server) handleBatchFileTags(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "select between 1 and 200 files and at most 128 tags"})
 		return
 	}
-	if r.Method == http.MethodPatch && (len(req.Tags) == 0 || (req.Operation != "add" && req.Operation != "remove")) {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "choose tags and an add or remove operation"})
-		return
+	if r.Method == http.MethodPatch {
+		// Retain the published single-operation API while allowing one atomic
+		// save of a mixed edit from the shared tag picker.
+		if req.Operation != "" || len(req.Tags) > 0 {
+			if len(req.Add)+len(req.Remove) != 0 || len(req.Tags) == 0 || (req.Operation != "add" && req.Operation != "remove") {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid tag operation"})
+				return
+			}
+			if req.Operation == "add" {
+				req.Add = req.Tags
+			} else {
+				req.Remove = req.Tags
+			}
+		}
+		if len(req.Add)+len(req.Remove) == 0 || len(req.Add)+len(req.Remove) > 128 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "choose between 1 and 128 tag changes"})
+			return
+		}
+		added := map[int64]bool{}
+		for _, id := range req.Add {
+			added[id] = true
+		}
+		for _, id := range req.Remove {
+			if added[id] {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "a tag cannot be added and removed together"})
+				return
+			}
+		}
 	}
 	s.mutate.Lock()
 	defer s.mutate.Unlock()
@@ -44,11 +71,11 @@ func (s *Server) handleBatchFileTags(w http.ResponseWriter, r *http.Request) {
 	}
 	db := s.accounts.Store()
 	if r.Method == http.MethodPatch {
-		if err := db.ChangeFileTags(paths, req.Tags, req.Operation == "remove"); err != nil {
+		if err := db.UpdateFileTags(paths, req.Add, req.Remove); err != nil {
 			tagError(w, err)
 			return
 		}
-		s.audit(r, "config.tags.batch", "paths", paths, "operation", req.Operation, "tags", req.Tags)
+		s.audit(r, "config.tags.batch", "paths", paths, "add", req.Add, "remove", req.Remove)
 		writeJSON(w, http.StatusOK, map[string]any{"files": len(paths)})
 		return
 	}

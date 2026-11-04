@@ -162,8 +162,20 @@ func (s *Store) DeleteCredential(userID int64, id string) error {
 // ClearMFA removes every second factor for a user: the TOTP secret and all
 // WebAuthn credentials. Used by an admin to reset a locked-out account.
 func (s *Store) ClearMFA(userID int64) error {
-	if _, err := s.db.Exec(`DELETE FROM webauthn_credentials WHERE user_id = ?`, userID); err != nil {
+	tx, err := s.db.Begin()
+	if err != nil {
 		return err
 	}
-	return s.ClearTOTP(userID)
+	defer tx.Rollback()
+	for _, query := range []string{
+		`DELETE FROM webauthn_credentials WHERE user_id=?`,
+		`DELETE FROM user_sessions WHERE user_id=?`,
+		`DELETE FROM trusted_devices WHERE user_id=?`,
+		`UPDATE users SET totp_secret='',totp_confirmed=0,totp_last_used=0,auth_version=auth_version+1 WHERE id=?`,
+	} {
+		if _, err := tx.Exec(query, userID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

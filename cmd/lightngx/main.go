@@ -135,7 +135,7 @@ func run() error {
 	}
 
 	if len(cfg.TrustedProxies) == 0 {
-		slog.Warn("LN_TRUSTED_PROXIES is empty: behind a reverse proxy, rate limiting and audit logs key on the proxy address; set it to your proxy's CIDR")
+		slog.Info("Loopback proxy trusted; set LN_TRUSTED_PROXIES when using a separate reverse proxy")
 	}
 	if cfg.WebAuthnRPID == "" {
 		slog.Warn("LN_WEBAUTHN_RPID/ORIGINS unset: WebAuthn binds to the request Host; set them for a stable identity behind a proxy")
@@ -178,7 +178,21 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("accounts: %w", err)
 	}
-	webAuthn := webauthnx.New(cfg.WebAuthnRPID, cfg.WebAuthnOrigins)
+	if pending, err := acct.NeedsBootstrap(); err != nil {
+		return err
+	} else if pending {
+		path := filepath.Join(cfg.DataDir, "setup-token")
+		if err := os.WriteFile(path, []byte(sessions.BootstrapToken()+"\n"), 0o600); err != nil {
+			return fmt.Errorf("setup token: %w", err)
+		}
+		if err := os.Chmod(path, 0o600); err != nil {
+			return err
+		}
+		slog.Info("first-run setup requires the token stored on this server", "path", path)
+	} else {
+		_ = os.Remove(filepath.Join(cfg.DataDir, "setup-token"))
+	}
+	webAuthn := webauthnx.New(cfg.WebAuthnRPID, cfg.WebAuthnOrigins, cfg.TrustedProxies)
 
 	var siteMgr, streamMgr *sites.Manager
 	if cfg.SitesEnabled {
@@ -194,6 +208,7 @@ func run() error {
 	if cfg.OIDCEnabled() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		oidcClient, err = auth.NewOIDC(ctx, auth.OIDCOptions{
+			Challenges:    userStore,
 			Issuer:        cfg.OIDCIssuer,
 			ClientID:      cfg.OIDCClientID,
 			ClientSecret:  cfg.OIDCClientSecret,

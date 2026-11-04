@@ -33,7 +33,9 @@ docker compose up -d
 ```
 
 Open the UI on **port 9000**. On the first run it shows a setup page to create
-the first administrator. Every setting has a default; see
+the first administrator. Read the server-held setup token with
+`docker compose exec nginx cat /var/lib/lightngx/setup-token` and enter it on
+that page. This prevents a public visitor from claiming a fresh instance. Every setting has a default; see
 [Configuration](https://buco7854.github.io/lightngx/configuration) to change
 one. No Docker? The binary is fully static, see
 [Running without Docker](https://buco7854.github.io/lightngx/without-docker).

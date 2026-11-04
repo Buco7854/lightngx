@@ -26,7 +26,7 @@ variables below.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `LN_LISTEN` | `:9000` | UI listen address |
-| `LN_DATA_DIR` | `/var/lib/lightngx` | Location of the session key and SQLite database |
+| `LN_DATA_DIR` | `/var/lib/lightngx` | Location of persistent signing/encryption keys, the first-run setup token, and SQLite database |
 | `LN_DB_PATH` | `<data dir>/lightngx.db` | Override the SQLite file path |
 | `LN_NGINX_BIN` | `nginx` | nginx binary |
 | `LN_NGINX_CONF` | `/etc/nginx/nginx.conf` | Main config used by `nginx -t` |
@@ -76,7 +76,7 @@ how roles are assigned.
 | `LN_SESSION_SECRET` | auto-generated | 32 or more characters; signs session cookies. Unset, a generated key is stored in the data directory, so sessions already survive restarts as long as that directory persists. Set it when the data directory is ephemeral. TOTP-secret encryption uses a separate key in the data directory |
 | `LN_SESSION_TTL` | `12h` | Session lifetime |
 | `LN_SECURE_COOKIES` | `auto` | Secure-cookie policy. `auto` mirrors the request scheme (Secure over HTTPS, not over plain HTTP), so HTTP-LAN and HTTPS work at once. `always`/`never` (or `true`/`false`) force it |
-| `LN_TRUSTED_PROXIES` | | CIDRs (bare IPs work too) allowed to set `X-Forwarded-For`, used for audit logs and rate limiting behind a proxy |
+| `LN_TRUSTED_PROXIES` | | Additional proxy CIDRs (bare IPs work too) allowed to set forwarded transport/client headers. Loopback nginx is trusted automatically. Used for Secure cookies, CSRF/WebAuthn origins, audit logs, and rate limiting |
 
 ## Sites and streams
 

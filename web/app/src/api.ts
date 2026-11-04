@@ -168,14 +168,16 @@ export interface APIKey {
 }
 
 export const api = {
+  reauthStatus: () => request<{required: boolean}>("/api/account/reauth"),
+  reauthenticate: (password: string) => request("/api/account/reauth", { method: "POST", body: JSON.stringify({password}) }),
   authStatus: () =>
     request<{ bootstrap: boolean; local: boolean; oidc: boolean; oidcLabel?: string }>(
       "/api/auth/status",
     ),
-  setup: (username: string, password: string) =>
+  setup: (username: string, password: string, token: string) =>
     request<{ user: string; level: Level }>("/api/auth/setup", {
       method: "POST",
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ username, password, token }),
     }),
   me: () => request<Me>("/api/me"),
   appConfig: () => request<AppConfig>("/api/app-config"),
@@ -275,7 +277,7 @@ export const api = {
   deleteTag: (id: number) => request(`/api/tags/${id}`, { method: "DELETE" }),
   fileTags: (path: string) => request<{ manual: number[]; tags: number[]; automatic: number[] }>(`/api/config/tags?path=${encodeURIComponent(path)}`),
   batchTagSelection: (paths: string[]) => request<{ files: number; tags: (Tag & { count: number })[] }>("/api/config/tags/batch", { method: "POST", body: JSON.stringify({ paths }) }),
-  batchFileTags: (paths: string[], tags: number[], operation: "add" | "remove") => request<{ files: number }>("/api/config/tags/batch", { method: "PATCH", body: JSON.stringify({ paths, tags, operation }) }),
+  updateBatchTags: (paths: string[], add: number[], remove: number[]) => request<{ files: number }>("/api/config/tags/batch", { method: "PATCH", body: JSON.stringify({ paths, add, remove }) }),
   setFileTags: (path: string, tags: number[]) => request<{ manual: number[]; automatic: number[]; tags: number[] }>(`/api/config/tags?path=${encodeURIComponent(path)}`, { method: "PUT", body: JSON.stringify({ tags }) }),
 
   tree: () => request<{ root: string; tree: TreeEntry }>("/api/config/tree"),

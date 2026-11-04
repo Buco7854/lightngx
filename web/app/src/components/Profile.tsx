@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, ApiError, type Credential, type Me, type SessionInfo } from "../api";
+import { useReauthenticate } from "../useReauthenticate";
 import { useConfirm } from "../confirm";
 import { useI18n } from "../i18n";
 import { useToast } from "../toast";
@@ -21,6 +22,7 @@ export default function Profile({
   const { t } = useI18n();
   const toast = useToast();
   const ask = useConfirm();
+  const reauthenticate = useReauthenticate();
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -85,6 +87,7 @@ export default function Profile({
 
   async function removeTOTP() {
     if (!(await ask({ title: t.remove, message: t.confirmRemoveTOTP, danger: true }))) return;
+    if (!(await reauthenticate())) return;
     try {
       await api.deleteTOTP();
       toast(t.userUpdated);
@@ -96,6 +99,7 @@ export default function Profile({
 
   async function removeKey(c: Credential) {
     if (!(await ask({ title: t.remove, message: t.confirmRemoveKey(c.name), danger: true }))) return;
+    if (!(await reauthenticate())) return;
     try {
       await api.deleteCredential(c.id);
       loadCreds();
@@ -178,7 +182,7 @@ export default function Profile({
                 </Btn>
               ) : (
                 adding !== "totp" && (
-                  <Btn size="sm" onClick={() => setAdding("totp")}>
+                  <Btn size="sm" onClick={async () => { if (await reauthenticate()) setAdding("totp"); }}>
                     {t.enroll}
                   </Btn>
                 )
@@ -201,7 +205,7 @@ export default function Profile({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm font-semibold">{t.securityKeys}</div>
               {adding !== "webauthn" && (
-                <Btn size="sm" onClick={() => setAdding("webauthn")}>
+                <Btn size="sm" onClick={async () => { if (await reauthenticate()) setAdding("webauthn"); }}>
                   <PlusIcon size={15} /> {t.addKey}
                 </Btn>
               )}

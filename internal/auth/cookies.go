@@ -28,21 +28,16 @@ func NewSecureFunc(mode string, trusted []*net.IPNet) SecureFunc {
 	}
 	var warnOnce sync.Once
 	return func(r *http.Request) bool {
-		if peerTrusted(r, trusted) {
-			if xf := r.Header.Get("X-Forwarded-Proto"); xf != "" {
-				return forwardedHTTPS(xf)
-			}
-		}
 		// An untrusted peer presenting HTTPS is the separate-proxy case: we
 		// can't believe the header, so the cookie stays non-Secure. Expose
 		// :9000 directly only for local HTTP; front any other access with the
 		// bundled nginx, or set LN_TRUSTED_PROXIES to the proxy.
-		if r.TLS == nil && forwardedHTTPS(r.Header.Get("X-Forwarded-Proto")) {
+		if r.TLS == nil && !peerTrusted(r, trusted) && forwardedHTTPS(r.Header.Get("X-Forwarded-Proto")) {
 			warnOnce.Do(func() {
 				slog.Warn("auto cookies: HTTPS request via an untrusted proxy, cookie left non-Secure; put the UI behind the bundled nginx or set LN_TRUSTED_PROXIES (direct :9000 is for local HTTP only)")
 			})
 		}
-		return r.TLS != nil
+		return RequestScheme(r, trusted) == "https"
 	}
 }
 
@@ -65,7 +60,29 @@ func peerTrusted(r *http.Request, trusted []*net.IPNet) bool {
 	if err != nil {
 		host = r.RemoteAddr
 	}
-	ip := net.ParseIP(host)
+	return TrustedProxy(net.ParseIP(host), trusted)
+}
+
+// RequestScheme trusts forwarded transport metadata only from known proxies,
+// independently of whether cookie flags were explicitly forced by configuration.
+func RequestScheme(r *http.Request, trusted []*net.IPNet) string {
+	if peerTrusted(r, trusted) {
+		proto := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0])
+		if strings.EqualFold(proto, "https") {
+			return "https"
+		}
+		if strings.EqualFold(proto, "http") {
+			return "http"
+		}
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+// TrustedProxy includes the bundled loopback nginx hop and explicit proxies.
+func TrustedProxy(ip net.IP, trusted []*net.IPNet) bool {
 	if ip == nil {
 		return false
 	}

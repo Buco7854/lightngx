@@ -10,6 +10,8 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,7 +49,10 @@ type Server struct {
 	// changes or roll back content another request just committed.
 	mutate sync.Mutex
 	// Serialize MFA state checks with enrollment, verification and removal.
-	mfaMu sync.Mutex
+	mfaMu        sync.Mutex
+	passwordWork chan struct{}
+	passkeyWork  chan struct{}
+	oidcWork     chan struct{}
 
 	tags tags.Engine
 
@@ -78,18 +83,21 @@ func New(cfg *config.Config, sessions *auth.Sessions, oidcClient *auth.OIDC,
 	nginx *nginxctl.Controller, conf *confdir.Dir, logStore *logs.Store,
 	siteMgr, streamMgr *sites.Manager, acct *accounts.Service, wa *webauthnx.Manager, static fs.FS) *Server {
 	return &Server{
-		cfg:      cfg,
-		sessions: sessions,
-		oidc:     oidcClient,
-		limiter:  auth.NewRateLimiter(5, 5*time.Minute),
-		nginx:    nginx,
-		conf:     conf,
-		logs:     logStore,
-		sites:    siteMgr,
-		streams:  streamMgr,
-		accounts: acct,
-		webauthn: wa,
-		static:   static,
+		cfg:          cfg,
+		passwordWork: make(chan struct{}, 4),
+		passkeyWork:  make(chan struct{}, 4),
+		oidcWork:     make(chan struct{}, 4),
+		sessions:     sessions,
+		oidc:         oidcClient,
+		limiter:      auth.NewRateLimiter(5, 5*time.Minute),
+		nginx:        nginx,
+		conf:         conf,
+		logs:         logStore,
+		sites:        siteMgr,
+		streams:      streamMgr,
+		accounts:     acct,
+		webauthn:     wa,
+		static:       static,
 	}
 }
 
@@ -104,7 +112,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/auth/passkey/finish", s.handlePasskeyLoginFinish)
 	mux.HandleFunc("POST /api/auth/logout", s.handleLogout)
 	if s.oidc != nil {
-		mux.HandleFunc("GET /api/auth/oidc/login", s.oidc.Begin)
+		mux.HandleFunc("GET /api/auth/oidc/login", s.handleOIDCLogin)
 		mux.HandleFunc("GET /api/auth/oidc/callback", s.handleOIDCCallback)
 	}
 
@@ -126,6 +134,8 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("DELETE /api/mfa/webauthn", s.handleDeleteCredential)
 	api.HandleFunc("DELETE /api/mfa/totp", s.handleDeleteTOTP)
 	api.HandleFunc("POST /api/account/password", s.handleChangePassword)
+	api.HandleFunc("GET /api/account/reauth", s.handleReauthStatus)
+	api.HandleFunc("POST /api/account/reauth", s.handleReauthenticate)
 	api.HandleFunc("GET /api/account/sessions", s.handleListSessions)
 	api.HandleFunc("DELETE /api/account/sessions/{sid}", s.handleRevokeSession)
 	api.HandleFunc("GET /api/app-config", s.handleAppConfig)
@@ -183,7 +193,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("/", s.staticHandler())
 
-	return securityHeaders(csrfProtect(s.requestLimits(mux)))
+	return securityHeaders(csrfProtect(s.requestLimits(mux), s.cfg.TrustedProxies))
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -194,8 +204,13 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func readJSON(w http.ResponseWriter, r *http.Request, v any, maxBytes int64) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
-	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(v); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid request body"})
+		return false
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		writeJSON(w, 400, map[string]string{"error": "request must contain one JSON value"})
 		return false
 	}
 	return true
@@ -205,7 +220,7 @@ func readJSON(w http.ResponseWriter, r *http.Request, v any, maxBytes int64) boo
 
 // issueSession issues a session cookie for a local user at the given level.
 func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, u store.User, method, level string) error {
-	sid, err := s.accounts.Store().CreateSession(u.ID, level, method, r.UserAgent(), s.clientIP(r), s.sessions.TTLFor(level))
+	sid, err := s.accounts.Store().CreateUserSession(u, level, method, r.UserAgent(), s.clientIP(r), s.sessions.TTLFor(level))
 	if err != nil {
 		return err
 	}
@@ -229,16 +244,30 @@ func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
+	pending, err := s.accounts.NeedsBootstrap()
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "storage error"})
+		return
+	}
+	if !pending {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "setup already completed"})
+		return
+	}
 	ip := s.clientIP(r)
 	if !s.limiter.Allow(ip) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
 		return
 	}
 	var req struct {
+		Token    string `json:"token"`
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 	if !readJSON(w, r, &req, 4096) {
+		return
+	}
+	if !s.sessions.ValidBootstrapToken(req.Token) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "invalid setup token"})
 		return
 	}
 	if err := accounts.ValidatePassword(req.Password); err != nil {
@@ -262,6 +291,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "session error"})
 		return
 	}
+	_ = os.Remove(filepath.Join(s.cfg.DataDir, "setup-token"))
 	s.audit(r, "setup.admin_created", "username", u.Username, "level", level)
 	writeJSON(w, http.StatusOK, map[string]string{"user": u.Username, "level": level})
 }
@@ -283,6 +313,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many attempts, try again later"})
 		return
 	}
+	if !reserveAuthWork(w, s.passwordWork) {
+		return
+	}
+	defer func() { <-s.passwordWork }()
 	dec, err := s.accounts.Authenticate(req.Username, req.Password)
 	if err != nil {
 		s.audit(r, "login.failed", "username", req.Username)
@@ -306,14 +340,31 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if sess, err := s.sessions.FromRequest(r); err == nil && sess.Sid != "" {
-		_ = s.accounts.Store().DeleteSession(sess.Sid, sess.UserID)
+	var err error
+	if sess, parseErr := s.sessions.FromRequest(r); parseErr == nil && sess.Sid != "" {
+		if sess.Method == "oidc" {
+			err = s.accounts.Store().DeleteOIDCSession(sess.Sid)
+		} else {
+			err = s.accounts.Store().DeleteSession(sess.Sid, sess.UserID)
+		}
 	}
 	s.sessions.Clear(w, r)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "could not revoke session"})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
+	if !s.limiter.Allow("oidc:" + s.clientIP(r)) {
+		writeJSON(w, 429, map[string]string{"error": "too many attempts, try again later"})
+		return
+	}
+	if !reserveAuthWork(w, s.oidcWork) {
+		return
+	}
+	defer func() { <-s.oidcWork }()
 	username, isAdmin, err := s.oidc.Callback(w, r)
 	if err != nil {
 		s.audit(r, "oidc.failed", "error", err.Error())
@@ -325,7 +376,12 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	if isAdmin {
 		role = "admin"
 	}
-	sess := auth.Session{User: username, Role: role, Method: "oidc", Level: auth.LevelFull}
+	sid, err := s.accounts.Store().CreateOIDCSession(username, role, s.sessions.TTLFor(auth.LevelFull))
+	if err != nil {
+		http.Error(w, "session error", http.StatusInternalServerError)
+		return
+	}
+	sess := auth.Session{User: username, Role: role, Method: "oidc", Level: auth.LevelFull, Sid: sid}
 	if err := s.sessions.Issue(w, r, sess); err != nil {
 		http.Error(w, "session error", http.StatusInternalServerError)
 		return
@@ -675,7 +731,7 @@ func (s *Server) handleLogStream(w http.ResponseWriter, r *http.Request) {
 	write := func(frame string) error {
 		wmu.Lock()
 		defer wmu.Unlock()
-		if _, ok := s.liveSession(r); !ok {
+		if sess, ok := s.liveSession(r); !ok || sess.Level != auth.LevelFull {
 			return auth.ErrInvalidSession
 		}
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(10 * time.Second))
@@ -723,4 +779,22 @@ func parseInt64(s string, def int64) int64 {
 		return def
 	}
 	return n
+}
+
+func reserveAuthWork(w http.ResponseWriter, slots chan struct{}) bool {
+	select {
+	case slots <- struct{}{}:
+		return true
+	default:
+		w.Header().Set("Retry-After", "2")
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "authentication is busy, try again shortly"})
+		return false
+	}
+}
+func (s *Server) handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
+	if !s.limiter.Allow("oidc-begin:" + s.clientIP(r)) {
+		writeJSON(w, 429, map[string]string{"error": "too many attempts, try again later"})
+		return
+	}
+	s.oidc.Begin(w, r)
 }

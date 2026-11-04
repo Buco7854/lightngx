@@ -184,6 +184,11 @@ func (s *Server) handleVerifyWebAuthnFinish(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	if !readWebAuthnBody(w, r) {
+		return
+	}
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	u, err := s.accounts.Store().GetUser(sess.UserID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
@@ -234,6 +239,15 @@ func (s *Server) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	if !reserveAuthWork(w, s.passkeyWork) {
+		return
+	}
+	defer func() { <-s.passkeyWork }()
+	if !readWebAuthnBody(w, r) {
+		return
+	}
+	s.mfaMu.Lock()
+	defer s.mfaMu.Unlock()
 	u, err := s.webauthn.FinishPasskeyLogin(r, s.accounts.Store(), sd)
 	if err != nil {
 		s.audit(r, "login.passkey_failed", "reason", err.Error())
@@ -273,6 +287,9 @@ func (s *Server) canEnrol(w http.ResponseWriter, r *http.Request) (*auth.Session
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "MFA enrollment already completed; sign in again"})
 			return nil, false
 		}
+	}
+	if sess.Level == auth.LevelFull && !s.requireRecentAuthentication(w, r) {
+		return nil, false
 	}
 	return sess, true
 }
@@ -330,12 +347,8 @@ func (s *Server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid code"})
 		return
 	}
-	if err := s.accounts.Store().ConfirmTOTP(sess.UserID); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
-		return
-	}
-	if err := s.accounts.Store().SetTOTPLastUsed(sess.UserID, matched); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
+	if err := s.accounts.Store().ConfirmTOTPForSession(sess.UserID, matched, sess.Sid); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "storage error"})
 		return
 	}
 	s.limiter.Reset(ip)
@@ -371,12 +384,9 @@ func (s *Server) handleRegisterWebAuthnBegin(w http.ResponseWriter, r *http.Requ
 func (s *Server) handleRegisterWebAuthnFinish(w http.ResponseWriter, r *http.Request) {
 	// Read the bounded upload before taking the MFA state lock. A slow client
 	// must not prevent other users from completing their second factor.
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+	if !readWebAuthnBody(w, r) {
 		return
 	}
-	r.Body = io.NopCloser(bytes.NewReader(body))
 	s.mfaMu.Lock()
 	defer s.mfaMu.Unlock()
 	sess, ok := s.canEnrol(w, r)
@@ -393,7 +403,7 @@ func (s *Server) handleRegisterWebAuthnFinish(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
-	if err := s.webauthn.FinishRegister(r, s.accounts.Store(), u, sd, name); err != nil {
+	if err := s.webauthn.FinishRegister(r, s.accounts.Store(), u, sd, name, sess.Sid); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "registration failed: " + err.Error()})
 		return
 	}
@@ -432,9 +442,19 @@ func (s *Server) handleListCredentials(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDeleteCredential(w http.ResponseWriter, r *http.Request) {
 	s.mfaMu.Lock()
 	defer s.mfaMu.Unlock()
-	sess, _ := sessionFrom(r.Context())
+	sess, ok := s.localSession(w, r)
+	if !ok {
+		return
+	}
+	if !s.requireRecentAuthentication(w, r) {
+		return
+	}
 	id := r.URL.Query().Get("id")
-	if err := s.accounts.Store().DeleteCredential(sess.UserID, id); err != nil {
+	if id == "" {
+		writeJSON(w, 400, map[string]string{"error": "credential ID is required"})
+		return
+	}
+	if err := s.accounts.Store().RemoveFactor(sess.UserID, id, sess.Sid); err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 		return
 	}
@@ -445,8 +465,14 @@ func (s *Server) handleDeleteCredential(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleDeleteTOTP(w http.ResponseWriter, r *http.Request) {
 	s.mfaMu.Lock()
 	defer s.mfaMu.Unlock()
-	sess, _ := sessionFrom(r.Context())
-	if err := s.accounts.Store().ClearTOTP(sess.UserID); err != nil {
+	sess, ok := s.localSession(w, r)
+	if !ok {
+		return
+	}
+	if !s.requireRecentAuthentication(w, r) {
+		return
+	}
+	if err := s.accounts.Store().RemoveFactor(sess.UserID, "", sess.Sid); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
@@ -467,9 +493,14 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req, 4096) {
 		return
 	}
+	key := "reauth:" + strconv.FormatInt(sess.UserID, 10)
+	if !s.limiter.Allow(key) {
+		writeJSON(w, 429, map[string]string{"error": "too many attempts, try again later"})
+		return
+	}
 	_, hash, err := s.accounts.Store().PasswordHash(sess.User)
 	if err != nil || !auth.CheckPassword(hash, req.Current) {
-		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "current password is incorrect"})
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "current password is incorrect"})
 		return
 	}
 	if err := accounts.ValidatePassword(req.New); err != nil {
@@ -481,13 +512,21 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "hash error"})
 		return
 	}
-	if err := s.accounts.Store().SetPassword(sess.UserID, newHash); err != nil {
+	if err := s.accounts.Store().ChangePassword(sess.UserID, newHash, sess.Sid, &hash); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
-	// Changing the password logs out every other device and drops remembered devices.
-	_ = s.accounts.Store().DeleteUserSessions(sess.UserID, sess.Sid)
-	_ = s.accounts.Store().ClearTrustedDevices(sess.UserID)
+	s.limiter.Reset(key)
 	s.audit(r, "account.password_changed", "username", sess.User)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "changed"})
+}
+
+func readWebAuthnBody(w http.ResponseWriter, r *http.Request) bool {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid request body"})
+		return false
+	}
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	return true
 }

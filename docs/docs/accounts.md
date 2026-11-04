@@ -7,7 +7,9 @@ Local accounts (username, bcrypt password, and a role of `admin` or `user`)
 live in the embedded SQLite database. There are three ways to sign in.
 
 - **First-run setup.** When there is no admin yet and `LN_ADMIN_USER` is unset,
-  the UI shows a one-time page to create the first admin.
+  the UI shows a one-time page to create the first admin. It requires the
+  token in `<LN_DATA_DIR>/setup-token`, readable only on the server. A public
+  visitor cannot claim the instance without it.
 - **Seeded admin.** `LN_ADMIN_USER` and `LN_ADMIN_PASSWORD_HASH` create that
   admin on the first boot. A later password change made in the app is kept.
 - **OIDC.** Sign-in is delegated to your identity provider. These logins bypass
@@ -39,7 +41,17 @@ who is required to enroll is walked through it on their next login, and can
 switch freely between TOTP and WebAuthn until they validate one method.
 
 Anyone can manage their own factors and password from the **Profile** page.
-TOTP secrets are encrypted at rest.
+TOTP secrets are encrypted at rest. Changing authentication factors requires a
+sign-in or password confirmation within the last five minutes. The app prompts
+when confirmation is needed. Completing enrollment or removing a factor revokes
+other sessions and remembered devices. Tightening the MFA policy also revokes
+password-only sessions that no longer satisfy it.
+
+OIDC sessions are now revocable server-side: logout invalidates a copied session
+cookie too. Existing OIDC sessions from older, stateless versions must sign in
+again once after upgrading. Provider-side account/group changes still require a
+new login or session expiry to refresh claims; configure the session lifetime
+accordingly.
 
 ## Administration
 

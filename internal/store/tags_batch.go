@@ -36,12 +36,20 @@ func (s *Store) FileTagCounts(paths []string) (map[int64]int, error) {
 // preserved. Validate inside the transaction, including for removals, so a tag
 // deleted or converted to smart cannot be silently treated as a manual label.
 func (s *Store) ChangeFileTags(paths []string, ids []int64, remove bool) error {
+	if remove {
+		return s.UpdateFileTags(paths, nil, ids)
+	}
+	return s.UpdateFileTags(paths, ids, nil)
+}
+
+// UpdateFileTags applies additions and removals in the same transaction.
+func (s *Store) UpdateFileTags(paths []string, add, remove []int64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	for _, id := range ids {
+	for _, id := range append(append([]int64{}, add...), remove...) {
 		var rules string
 		if err := tx.QueryRow(`SELECT rules FROM tags WHERE id=?`, id).Scan(&rules); err != nil {
 			if err == sql.ErrNoRows {
@@ -53,20 +61,30 @@ func (s *Store) ChangeFileTags(paths []string, ids []int64, remove bool) error {
 			return ErrAutomaticTag
 		}
 	}
-	query := `INSERT OR IGNORE INTO file_tags(path,tag_id) VALUES (?,?)`
-	if remove {
-		query = `DELETE FROM file_tags WHERE path=? AND tag_id=?`
-	}
-	stmt, err := tx.Prepare(query)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-	for _, path := range paths {
-		for _, id := range ids {
-			if _, err := stmt.Exec(path, id); err != nil {
-				return err
+	for _, delta := range []struct {
+		query string
+		ids   []int64
+	}{
+		{`DELETE FROM file_tags WHERE path=? AND tag_id=?`, remove},
+		{`INSERT OR IGNORE INTO file_tags(path,tag_id) VALUES (?,?)`, add},
+	} {
+		if len(delta.ids) == 0 {
+			continue
+		}
+		stmt, err := tx.Prepare(delta.query)
+		if err != nil {
+			return err
+		}
+		for _, path := range paths {
+			for _, id := range delta.ids {
+				if _, err := stmt.Exec(path, id); err != nil {
+					stmt.Close()
+					return err
+				}
 			}
+		}
+		if err := stmt.Close(); err != nil {
+			return err
 		}
 	}
 	return tx.Commit()

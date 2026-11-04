@@ -9,19 +9,21 @@ import (
 )
 
 // SessionRecord is a persisted login session. Local sessions are stored so a
-// user can list and revoke their devices; OIDC sessions stay stateless.
+// user can list and revoke their devices. OIDC sessions use their own registry.
 type SessionRecord struct {
-	Sid       string    `json:"sid"`
-	UserID    int64     `json:"-"`
-	Username  string    `json:"-"`
-	Role      string    `json:"-"`
-	Level     string    `json:"-"`
-	Method    string    `json:"-"`
-	UserAgent string    `json:"userAgent"`
-	IP        string    `json:"ip"`
-	CreatedAt time.Time `json:"createdAt"`
-	LastSeen  time.Time `json:"lastSeen"`
-	ExpiresAt time.Time `json:"-"`
+	VerifiedAt  time.Time `json:"-"`
+	MFAEnrolled bool      `json:"-"`
+	Sid         string    `json:"sid"`
+	UserID      int64     `json:"-"`
+	Username    string    `json:"-"`
+	Role        string    `json:"-"`
+	Level       string    `json:"-"`
+	Method      string    `json:"-"`
+	UserAgent   string    `json:"userAgent"`
+	IP          string    `json:"ip"`
+	CreatedAt   time.Time `json:"createdAt"`
+	LastSeen    time.Time `json:"lastSeen"`
+	ExpiresAt   time.Time `json:"-"`
 }
 
 func newSID() (string, error) {
@@ -34,16 +36,26 @@ func newSID() (string, error) {
 
 // CreateSession records a new session and returns its id.
 func (s *Store) CreateSession(userID int64, level, method, ua, ip string, ttl time.Duration) (string, error) {
+	u, err := s.GetUser(userID)
+	if err != nil {
+		return "", err
+	}
+	return s.CreateUserSession(u, level, method, ua, ip, ttl)
+}
+
+// Guard against a password reset completing while a login was verifying the
+// previous hash. A stale login decision cannot mint a replacement session.
+func (s *Store) CreateUserSession(u User, level, method, ua, ip string, ttl time.Duration) (string, error) {
 	sid, err := newSID()
 	if err != nil {
 		return "", err
 	}
 	t := now()
 	exp := time.Now().Add(ttl).UTC().Format(time.RFC3339Nano)
-	_, err = s.db.Exec(
-		`INSERT INTO user_sessions (sid, user_id, level, method, user_agent, ip, created_at, last_seen, expires_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		sid, userID, level, method, ua, ip, t, t, exp)
+	err = s.touch(
+		`INSERT INTO user_sessions (sid, user_id, level, method, user_agent, ip, created_at, last_seen, expires_at, verified_at)
+		 SELECT ?, id, ?, ?, ?, ?, ?, ?, ?, ? FROM users WHERE id=? AND auth_version=?`,
+		sid, level, method, ua, ip, t, t, exp, time.Now().Unix(), u.ID, u.AuthVersion)
 	return sid, err
 }
 
@@ -52,18 +64,21 @@ func (s *Store) CreateSession(userID int64, level, method, ua, ip string, ttl ti
 func (s *Store) GetSession(sid string) (SessionRecord, error) {
 	var r SessionRecord
 	var created, seen, exp string
+	var verified int64
 	err := s.db.QueryRow(
 		`SELECT s.sid, s.user_id, u.username, u.role, s.level, s.method,
-		        s.user_agent, s.ip, s.created_at, s.last_seen, s.expires_at
+		        s.user_agent, s.ip, s.created_at, s.last_seen, s.expires_at, s.verified_at,
+ (u.totp_confirmed=1 AND u.totp_secret!='') OR EXISTS(SELECT 1 FROM webauthn_credentials WHERE user_id=u.id)
 		 FROM user_sessions s JOIN users u ON u.id = s.user_id WHERE s.sid = ?`, sid).
 		Scan(&r.Sid, &r.UserID, &r.Username, &r.Role, &r.Level, &r.Method,
-			&r.UserAgent, &r.IP, &created, &seen, &exp)
+			&r.UserAgent, &r.IP, &created, &seen, &exp, &verified, &r.MFAEnrolled)
 	if errors.Is(err, sql.ErrNoRows) {
 		return r, ErrNotFound
 	}
 	if err != nil {
 		return r, err
 	}
+	r.VerifiedAt = time.Unix(verified, 0)
 	r.CreatedAt, r.LastSeen, r.ExpiresAt = parseTime(created), parseTime(seen), parseTime(exp)
 	if !time.Now().Before(r.ExpiresAt) {
 		return r, ErrNotFound
@@ -85,7 +100,7 @@ func (s *Store) UpgradeSession(sid, level string, ttl time.Duration) (string, er
 		return "", err
 	}
 	exp := time.Now().Add(ttl).UTC().Format(time.RFC3339Nano)
-	err = s.touch(`UPDATE user_sessions SET sid = ?, level = ?, expires_at = ? WHERE sid = ? AND expires_at > ?`, replacement, level, exp, sid, now())
+	err = s.touch(`UPDATE user_sessions SET sid = ?, level = ?, expires_at = ?, verified_at=? WHERE sid = ? AND julianday(expires_at) > julianday(?)`, replacement, level, exp, time.Now().Unix(), sid, now())
 	return replacement, err
 }
 
@@ -125,6 +140,13 @@ func (s *Store) DeleteUserSessions(userID int64, keepSid string) error {
 
 // DeleteExpiredSessions prunes expired rows.
 func (s *Store) DeleteExpiredSessions() error {
-	_, err := s.db.Exec(`DELETE FROM user_sessions WHERE expires_at <= ?`, now())
+	if _, err := s.db.Exec(`DELETE FROM user_sessions WHERE julianday(expires_at) <= julianday(?)`, now()); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(`DELETE FROM oidc_sessions WHERE julianday(expires_at) <= julianday(?)`, now())
 	return err
+}
+
+func (s *Store) MarkReauthenticated(sid string, id, version int64) error {
+	return s.touch(`UPDATE user_sessions SET verified_at=? WHERE sid=? AND user_id=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND auth_version=?)`, time.Now().Unix(), sid, id, id, version)
 }

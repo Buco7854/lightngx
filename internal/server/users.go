@@ -109,39 +109,36 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req, 4096) {
 		return
 	}
-	sess, _ := sessionFrom(r.Context())
-
-	if req.Role != nil && *req.Role != target.Role {
-		if !accounts.ValidRole(*req.Role) {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "role must be admin or user"})
-			return
-		}
-		if err := s.accounts.Store().SetRole(id, *req.Role); errors.Is(err, store.ErrLastAdmin) {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "cannot demote the last admin"})
-			return
-		} else if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
-			return
-		}
-		s.audit(r, "user.role_changed", "by", sess.User, "username", target.Username, "role", *req.Role)
+	if req.Role != nil && !accounts.ValidRole(*req.Role) {
+		writeJSON(w, 400, map[string]string{"error": "role must be admin or user"})
+		return
 	}
-
+	var newHash *string
 	if req.Password != nil {
 		if err := accounts.ValidatePassword(*req.Password); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			writeJSON(w, 400, map[string]string{"error": err.Error()})
 			return
 		}
 		hash, err := auth.HashPassword(*req.Password)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "hash error"})
+			writeJSON(w, 500, map[string]string{"error": "hash error"})
 			return
 		}
-		if err := s.accounts.Store().SetPassword(id, hash); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
-			return
+		newHash = &hash
+	}
+	if err := s.accounts.Store().ChangeAccount(id, req.Role, newHash); err != nil {
+		if errors.Is(err, store.ErrLastAdmin) {
+			writeJSON(w, 409, map[string]string{"error": "cannot demote the last admin"})
+		} else {
+			writeJSON(w, 500, map[string]string{"error": "storage error"})
 		}
-		_ = s.accounts.Store().DeleteUserSessions(id, "")
-		_ = s.accounts.Store().ClearTrustedDevices(id)
+		return
+	}
+	sess, _ := sessionFrom(r.Context())
+	if req.Role != nil && *req.Role != target.Role {
+		s.audit(r, "user.role_changed", "by", sess.User, "username", target.Username, "role", *req.Role)
+	}
+	if newHash != nil {
 		s.audit(r, "user.password_reset", "by", sess.User, "username", target.Username)
 	}
 
@@ -191,8 +188,6 @@ func (s *Server) handleResetUserMFA(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "storage error"})
 		return
 	}
-	_ = s.accounts.Store().DeleteUserSessions(id, "")
-	_ = s.accounts.Store().ClearTrustedDevices(id)
 	sess, _ := sessionFrom(r.Context())
 	s.audit(r, "user.mfa_reset", "by", sess.User, "username", target.Username)
 	u, _ := s.accounts.Store().GetUser(id)

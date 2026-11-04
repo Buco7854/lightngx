@@ -1,9 +1,13 @@
-import { useCallback, useEffect, useId, useState } from "react";
-import { api } from "../../api";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { api, type Tag } from "../../api";
+import { useConfirm } from "../../confirm";
 import { useI18n } from "../../i18n";
-import { PlusIcon } from "../../icons";
+import { BackIcon } from "../../icons";
 import { useToast } from "../../toast";
-import { Btn, Checkbox, Input, Loading, Modal, SearchInput, Segmented, Spinner } from "../../ui";
+import { Btn, Loading, Modal, Spinner } from "../../ui";
+import { AuthError } from "../auth/fields";
+import TagForm from "./TagForm";
+import TagPicker from "./TagPicker";
 import { catalogEvent } from "./useTags";
 
 type Selection = Awaited<ReturnType<typeof api.batchTagSelection>>;
@@ -19,46 +23,71 @@ export default function BatchTagsDialog({
 }) {
   const { t } = useI18n();
   const toast = useToast();
-  const nameId = useId();
+  const ask = useConfirm();
+  const formId = useId();
   const [data, setData] = useState<Selection | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"add" | "remove">("add");
-  const [picked, setPicked] = useState<Set<number>>(new Set());
-  const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
+  const [changes, setChanges] = useState<Map<number, boolean>>(new Map());
+  const dirtyForm = useRef(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const markDirty = useCallback((value: boolean) => {
+    dirtyForm.current = value;
+  }, []);
   const refresh = useCallback(async () => {
-    setLoading(true);
     try {
       const next = await api.batchTagSelection(paths);
       setData(next);
-      setError("");
-      setPicked(
-        (previous) => new Set([...previous].filter((id) => next.tags.some((tag) => tag.id === id))),
+      setChanges(
+        (previous) =>
+          new Map([...previous].filter(([id]) => next.tags.some((tag) => tag.id === id))),
       );
+      setError("");
     } catch (err) {
       setError((err as Error).message);
-    } finally {
-      setLoading(false);
     }
   }, [paths]);
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
+  async function leave() {
+    if (busy) return;
+    if (
+      (changes.size || dirtyForm.current) &&
+      !(await ask({ title: t.unsavedChanges, message: t.discardChanges, danger: true }))
+    )
+      return;
+    onClose();
+  }
+  function update(id: number, assign: boolean) {
+    if (!data) return;
+    const tag = data.tags.find((tag) => tag.id === id);
+    if (!tag) return;
+    setChanges((previous) => {
+      const next = new Map(previous);
+      if ((assign && tag.count === data.files) || (!assign && tag.count === 0)) next.delete(id);
+      else next.set(id, assign);
+      return next;
+    });
+  }
   async function apply() {
+    if (busy || !changes.size) return;
     setBusy(true);
     setError("");
     try {
-      const result = await api.batchFileTags(paths, [...picked], mode);
-      toast(mode === "add" ? t.batchTagsAdded(result.files) : t.batchTagsRemoved(result.files));
+      const add = [...changes].filter(([, assign]) => assign).map(([id]) => id);
+      const remove = [...changes].filter(([, assign]) => !assign).map(([id]) => id);
+      const result = await api.updateBatchTags(paths, add, remove);
+      toast(t.tagBatchSaved(result.files));
       onChanged();
       onClose();
       requestAnimationFrame(() => {
         if (document.activeElement === document.body)
-          document.querySelector<HTMLElement>("[data-batch-select] input")?.focus();
+          (
+            document.querySelector<HTMLElement>("[data-batch-select] input") ??
+            document.getElementById("main-content")
+          )?.focus();
       });
     } catch (err) {
       setError((err as Error).message);
@@ -66,11 +95,12 @@ export default function BatchTagsDialog({
       setBusy(false);
     }
   }
-  async function createTag() {
+  async function create(definition: Omit<Tag, "id">) {
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
-      const tag = await api.saveTag({ name: name.trim(), mode: "all", rules: [] });
+      const tag = await api.saveTag({ ...definition, rules: [] });
       setData((previous) =>
         previous
           ? {
@@ -81,164 +111,119 @@ export default function BatchTagsDialog({
             }
           : previous,
       );
-      setPicked((previous) => new Set([...previous, tag.id]));
-      setName("");
-      setQuery("");
+      setChanges((previous) => new Map(previous).set(tag.id, true));
+      dirtyForm.current = false;
       setCreating(false);
       window.dispatchEvent(new Event(catalogEvent));
+      requestAnimationFrame(() =>
+        pickerRef.current?.querySelector<HTMLElement>('[role="combobox"]')?.focus(),
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setBusy(false);
     }
   }
-  const visible =
-    data?.tags.filter((tag) =>
-      tag.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
-    ) ?? [];
   return (
     <Modal
-      title={t.batchTagsTitle}
-      hint={t.batchTagsHint(data?.files ?? paths.length)}
+      title={creating ? t.batchNewManualTag : t.tags}
+      hint={creating ? t.tagCreateForSelection : t.tagSelectionHint(data?.files ?? paths.length)}
       closeLabel={t.close}
-      onClose={() => {
-        if (!busy) onClose();
-      }}
+      onClose={() => void leave()}
       footer={
         <div className="flex flex-wrap items-center justify-end gap-2.5">
-          <span className="mr-auto text-xs text-dim max-[460px]:w-full" role="status">
-            {t.batchTagsChosen(picked.size)}
-          </span>
-          <Btn type="button" disabled={busy} onClick={onClose}>
-            {t.cancel}
-          </Btn>
-          <Btn
-            type="button"
-            variant="primary"
-            disabled={busy || loading || !data || !picked.size}
-            onClick={() => void apply()}
-          >
-            {busy && <Spinner />}
-            {mode === "add" ? t.batchAddTags : t.batchRemoveTags}
-          </Btn>
+          {creating ? (
+            <>
+              <Btn
+                type="button"
+                className="mr-auto"
+                disabled={busy}
+                onClick={async () => {
+                  if (
+                    dirtyForm.current &&
+                    !(await ask({
+                      title: t.unsavedChanges,
+                      message: t.discardChanges,
+                      danger: true,
+                    }))
+                  )
+                    return;
+                  dirtyForm.current = false;
+                  setCreating(false);
+                  setError("");
+                }}
+              >
+                <BackIcon size={14} />
+                {t.back}
+              </Btn>
+              <Btn type="submit" form={formId} variant="primary" disabled={busy}>
+                {busy && <Spinner />}
+                {t.tagCreate}
+              </Btn>
+            </>
+          ) : (
+            <>
+              <span role="status" className="mr-auto text-xs text-dim max-[460px]:w-full">
+                {changes.size ? t.tagChangesCount(changes.size) : t.tagNoChanges}
+              </span>
+              <Btn type="button" disabled={busy} onClick={() => void leave()}>
+                {t.cancel}
+              </Btn>
+              <Btn
+                type="button"
+                variant="primary"
+                disabled={busy || !data || !changes.size}
+                onClick={() => void apply()}
+              >
+                {busy && <Spinner />}
+                {t.tagApplyChanges}
+              </Btn>
+            </>
+          )}
         </div>
       }
     >
-      <div className="space-y-4">
-        {error && (
-          <div
-            role="alert"
-            className="rounded-lg border border-danger-line bg-danger-soft p-3 text-sm text-danger-ink"
-          >
-            {error}
-          </div>
-        )}
-        <fieldset disabled={busy || loading} className="min-w-0 space-y-4">
-          <Segmented
-            value={mode}
-            ariaLabel={t.batchTagOperation}
-            options={[
-              { value: "add", label: t.batchAdd },
-              { value: "remove", label: t.batchRemove },
-            ]}
-            onChange={(value) => {
-              setMode(value);
-              setPicked(new Set());
-              setCreating(false);
-            }}
-          />
-          <SearchInput value={query} onChange={setQuery} placeholder={t.tagSearch} />
-          {loading ? (
-            <Loading />
-          ) : data ? (
-            <div className="batch-tag-list">
-              {visible.length ? (
-                visible.map((tag) => {
-                  const disabled = mode === "add" ? tag.count === data.files : tag.count === 0;
-                  return (
-                    <label
-                      key={tag.id}
-                      className={`batch-tag-row ${disabled ? "text-dim" : "cursor-pointer hover:bg-hov"}`}
-                    >
-                      <Checkbox
-                        checked={picked.has(tag.id)}
-                        disabled={disabled || busy}
-                        ariaLabel={tag.name}
-                        onChange={() =>
-                          setPicked((previous) => {
-                            const next = new Set(previous);
-                            if (next.has(tag.id)) next.delete(tag.id);
-                            else next.add(tag.id);
-                            return next;
-                          })
-                        }
-                      />
-                      <span className="flex min-w-0 flex-1 flex-col gap-1 min-[461px]:flex-row min-[461px]:items-center min-[461px]:gap-3">
-                        <span className="min-w-0 flex-1 break-words text-sm">{tag.name}</span>
-                        <span className="shrink-0 text-xs text-dim tabular-nums">
-                          {tag.count === 0
-                            ? t.batchUnassigned
-                            : tag.count === data.files
-                              ? t.batchOnAll
-                              : t.batchOnSome(tag.count, data.files)}
-                        </span>
-                      </span>
-                    </label>
-                  );
-                })
-              ) : (
-                <p className="px-3 py-5 text-center text-sm text-dim">
-                  {query ? t.noMatches : t.batchNoManualTags}
-                </p>
-              )}
-            </div>
-          ) : (
-            <Btn type="button" onClick={() => void refresh()}>
+      {error && (
+        <div className="mb-4" role="alert">
+          <AuthError>{error}</AuthError>
+          {(!data || !creating) && (
+            <Btn type="button" size="sm" onClick={() => void refresh()}>
               {t.tagRetry}
             </Btn>
           )}
-          {data &&
-            mode === "add" &&
-            (creating ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (name.trim() && !busy) void createTag();
-                }}
-                className="space-y-2"
-              >
-                <label htmlFor={nameId} className="block text-[13px] font-medium">
-                  {t.tagName}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <Input
-                    id={nameId}
-                    autoFocus
-                    required
-                    maxLength={48}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="min-w-0 flex-1 max-[460px]:basis-full"
-                    placeholder={t.tagNameExample}
-                  />
-                  <Btn type="submit" disabled={!name.trim() || busy}>
-                    {t.create}
-                  </Btn>
-                  <Btn type="button" variant="ghost" onClick={() => setCreating(false)}>
-                    {t.cancel}
-                  </Btn>
-                </div>
-                <p className="text-xs text-dim">{t.batchCreateHint}</p>
-              </form>
-            ) : (
-              <Btn type="button" variant="ghost" onClick={() => setCreating(true)}>
-                <PlusIcon size={15} />
-                {t.batchNewManualTag}
-              </Btn>
-            ))}
-        </fieldset>
-        <p className="text-xs leading-relaxed text-dim">{t.batchSmartHint}</p>
-      </div>
+        </div>
+      )}
+      {creating ? (
+        <TagForm formId={formId} manualOnly busy={busy} onDirty={markDirty} onSave={create} />
+      ) : !data ? (
+        !error && <Loading />
+      ) : (
+        <div ref={pickerRef} className="space-y-4">
+          <TagPicker
+            tags={data.tags}
+            files={data.files}
+            changes={changes}
+            disabled={busy}
+            onToggle={(id) => {
+              const tag = data.tags.find((tag) => tag.id === id)!;
+              update(id, !(changes.get(id) ?? tag.count === data.files));
+            }}
+            onRemove={(id) => update(id, false)}
+            onReset={(id) =>
+              setChanges((previous) => {
+                const next = new Map(previous);
+                next.delete(id);
+                return next;
+              })
+            }
+            onCreate={() => {
+              setError("");
+              setCreating(true);
+            }}
+          />
+          <p className="text-xs leading-relaxed text-dim">{t.tagMixedHint}</p>
+        </div>
+      )}
     </Modal>
   );
 }

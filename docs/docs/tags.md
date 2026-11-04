@@ -70,11 +70,18 @@ limited to 200 files. For larger results, **Select first 200 matching files**
 names that limit before you act. Changing filters or folders clears the selection.
 Folders and external links cannot be selected in the config browser.
 
-In the dialog, choose **Add** or **Remove**, then select the manual tags to
-change. Each tag shows whether it is assigned to all, some, or none of the
-selected files. You can create a manual tag here; it is assigned only when you
-choose **Add tags**. Adding or removing labels preserves each file’s other tags.
-Smart tags remain rule-driven and do not appear as assignment options.
+The dialog shows the manual labels already present. Open **Choose manual tags**
+to search and select labels. A partial checkbox and an `n/m` chip mean that only
+some selected files have that label; selecting it applies the label to all files.
+Remove a chip to remove that label from the selection. The change preview states
+each addition and removal, with **Undo** for individual changes. Choose
+**Apply changes** to save them together. Untouched labels keep their original
+assignments, including partially assigned labels.
+
+**New tag** opens the same creation form used by the file workspace. In a batch
+it creates a manual label and stages its assignment; the assignment is saved
+when you apply changes. Closing with pending edits offers to keep or discard
+those edits. Smart tags remain rule-driven.
 
 The update either succeeds for every selected file or changes none. Missing
 files, external links, unknown tags, and tags converted to smart are rejected.
@@ -129,6 +136,11 @@ protection for mutations:
 | PUT | `/api/config/tags?path=...` | Replace manual assignments (smart IDs are rejected): `{ "tags": [id] }` |
 | POST | `/api/config/tags/batch` | Preview `{ "paths": [...] }`; returns `{ "files": n, "tags": [{ "id", "name", "mode", "rules", "count" }] }` with manual tags only |
 | PATCH | `/api/config/tags/batch` | Apply `{ "paths": [...], "tags": [id], "operation": "add" }` or `"remove"`; returns `{ "files": n }` |
+
+The batch PATCH route also accepts `{ "paths": [...], "add": [id], "remove": [id] }`
+for mixed edits in one transaction. A tag cannot appear in both arrays; their
+combined length is limited to 128. The original `operation`/`tags` format remains
+supported, but cannot be combined with `add`/`remove`.
 
 A rule is `{ "field": "content", "op": "contains", "value": "proxy_pass",
 "ignoreCase": false }`. Fields are `content` or `path`; operators are `contains`,

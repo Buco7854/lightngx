@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,8 @@ func TestTagsAPIAndConfigRollback(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	db, err := store.Open(filepath.Join(t.TempDir(), "db"), nil)
+	dbPath := filepath.Join(t.TempDir(), "db")
+	db, err := store.Open(dbPath, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,9 +47,13 @@ func TestTagsAPIAndConfigRollback(t *testing.T) {
 	sessions := auth.NewSessions([]byte("01234567890123456789012345678901"), time.Hour, func(*http.Request) bool { return false })
 	s := New(cfg, sessions, nil, nginxctl.New("/bin/true", "", "", false, false), conf, nil, sites.New(filepath.Join(root, "sites-available"), filepath.Join(root, "sites-enabled"), filepath.Join(root, ".lightngx"), ""), nil, acct, nil, nil)
 	handler := s.Handler()
+	user, err := db.CreateUser("tester", "hash", "user")
+	if err != nil {
+		t.Fatal(err)
+	}
 	cookie := func(level string) *http.Cookie {
 		rec := httptest.NewRecorder()
-		if err := sessions.Issue(rec, httptest.NewRequest("GET", "http://example.test", nil), auth.Session{User: "tester", Role: "user", Method: "oidc", Level: level}); err != nil {
+		if err := s.issueSession(rec, httptest.NewRequest("GET", "http://example.test", nil), user, "local", level); err != nil {
 			t.Fatal(err)
 		}
 		return rec.Result().Cookies()[0]
@@ -166,7 +172,12 @@ func TestTagsAPIAndConfigRollback(t *testing.T) {
 		t.Fatalf("custom source path: %s", w.Body)
 	}
 	// A metadata persistence failure must restore a validated filesystem change.
-	if err := db.Close(); err != nil {
+	inject, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer inject.Close()
+	if _, err := inject.Exec(`CREATE TRIGGER fail_metadata BEFORE DELETE ON file_tags BEGIN SELECT RAISE(ABORT,'test metadata failure'); END`); err != nil {
 		t.Fatal(err)
 	}
 	call("DELETE", "/api/config/file?path=vhosts/copy", "", full, 500)

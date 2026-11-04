@@ -38,6 +38,11 @@ func New(st *store.Store, cfg *config.Config) (*Service, error) {
 	if err := s.seedAdmin(cfg); err != nil {
 		return nil, err
 	}
+	if s.pinned {
+		if err := st.EnforceMFAPolicy(s.pinnedRoles); err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -117,10 +122,7 @@ func (s *Service) SetPolicy(roles []string) error {
 			return errors.New("unknown role: " + r)
 		}
 	}
-	if err := s.store.SetSetting(settingMFARoles, strings.Join(roles, ",")); err != nil {
-		return err
-	}
-	return s.store.SetSetting(settingMFADecided, "1")
+	return s.store.SetMFAPolicy(roles)
 }
 
 // RoleRequiresMFA reports whether the given role must use a second factor
@@ -142,7 +144,7 @@ type LoginDecision struct {
 // Authenticate verifies a username/password and decides the resulting
 // session level: full, awaiting-MFA (enrolled), or forced-enrolment.
 func (s *Service) Authenticate(username, password string) (LoginDecision, error) {
-	id, hash, err := s.store.PasswordHash(username)
+	id, hash, version, err := s.store.PasswordHashVersion(username)
 	if err != nil {
 		auth.CheckPassword(dummyHash, password) // equalize timing vs a real user
 		return LoginDecision{}, ErrInvalidCredentials
@@ -153,6 +155,9 @@ func (s *Service) Authenticate(username, password string) (LoginDecision, error)
 	u, err := s.store.GetUser(id)
 	if err != nil {
 		return LoginDecision{}, err
+	}
+	if u.AuthVersion != version {
+		return LoginDecision{}, ErrInvalidCredentials
 	}
 	level, err := s.levelFor(u)
 	if err != nil {
