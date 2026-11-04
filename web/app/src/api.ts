@@ -37,7 +37,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface TagRule {
   field: "path" | "content";
-  op: "contains" | "regex";
+  op: "contains" | "not_contains" | "regex" | "not_regex";
   value: string;
   ignoreCase: boolean;
 }

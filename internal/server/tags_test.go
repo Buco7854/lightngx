@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -97,6 +99,33 @@ func TestTagsAPIAndConfigRollback(t *testing.T) {
 	if len(listing.Sites) != 1 || len(listing.Sites[0].Tags) != 2 {
 		t.Fatalf("list missing tags: %s", w.Body)
 	}
+	// Negative conditions survive API round trips and participate in list matches.
+	w = call("POST", "/api/tags", `{"name":"missing auth","mode":"all","rules":[{"field":"content","op":"contains","value":"proxy_pass"},{"field":"content","op":"not_contains","value":"auth-gate"}]}`, full, 200)
+	var negative store.Tag
+	if err := json.Unmarshal(w.Body.Bytes(), &negative); err != nil {
+		t.Fatal(err)
+	}
+	negativeURL := "/api/tags/" + strconv.FormatInt(negative.ID, 10)
+	checkNegative := func(want bool) {
+		t.Helper()
+		w := call("GET", "/api/vhosts/sites", "", full, 200)
+		if err := json.Unmarshal(w.Body.Bytes(), &listing); err != nil {
+			t.Fatal(err)
+		}
+		if len(listing.Sites) != 1 || slices.Contains(listing.Sites[0].Tags, negative.ID) != want {
+			t.Fatalf("negative match: %s, want %v", w.Body, want)
+		}
+	}
+	checkNegative(true)
+	w = call("GET", "/api/tags", "", full, 200)
+	if !bytes.Contains(w.Body.Bytes(), []byte(`"op":"not_contains"`)) {
+		t.Fatalf("negative operator lost: %s", w.Body)
+	}
+	call("PUT", negativeURL, `{"name":"missing auth","mode":"all","rules":[{"field":"content","op":"not_regex","value":"PROXY_PASS\\s+","ignoreCase":true}]}`, full, 200)
+	checkNegative(false)
+	call("PUT", negativeURL, `{"name":"missing auth","mode":"all","rules":[{"field":"content","op":"not_regex","value":"["}]}`, full, 400)
+	checkNegative(false)
+	call("DELETE", negativeURL, "", full, 200)
 	// Failed validation must leave both file and labels at the original path.
 	s.nginx = nginxctl.New("/bin/false", "", "", false, false)
 	call("POST", "/api/config/rename", `{"from":"sites-available/blog","to":"sites-available/moved"}`, full, 422)

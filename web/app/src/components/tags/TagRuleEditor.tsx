@@ -33,9 +33,10 @@ export default function TagRuleEditor({
     // Focus newly added conditions and explicit changes of input mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multiline]);
-  const label = `${rule.op === "regex" ? t.tagPattern : t.tagSnippet} ${number}`;
+  const regex = rule.op === "regex" || rule.op === "not_regex";
+  const label = `${regex ? t.tagPattern : t.tagSnippet} ${number}`;
   const placeholder =
-    rule.op === "regex"
+    regex
       ? "proxy_pass\\s+https?://"
       : rule.field === "path"
         ? "sites-available/"
@@ -48,7 +49,7 @@ export default function TagRuleEditor({
       className="min-w-0 space-y-2.5 px-3.5 py-3.5"
     >
       <div className="flex items-start gap-2">
-        <div className="grid min-w-0 flex-1 gap-2 min-[460px]:grid-cols-2">
+        <div className="grid min-w-0 flex-1 gap-2 min-[560px]:grid-cols-[minmax(0,1fr)_minmax(0,1.8fr)]">
           <Combobox
             ariaLabel={`${t.tagField} ${number}`}
             value={rule.field}
@@ -61,12 +62,15 @@ export default function TagRuleEditor({
           />
           <Combobox
             ariaLabel={`${t.tagOperator} ${number}`}
+            wrapLabel
             value={rule.op}
             disabled={busy}
             onChange={(value) => onChange({ op: value as TagRule["op"] })}
             options={[
               { value: "contains", label: t.tagContains },
+              { value: "not_contains", label: t.tagNotContains },
               { value: "regex", label: t.tagRegex },
+              { value: "not_regex", label: t.tagNotRegex },
             ]}
           />
         </div>

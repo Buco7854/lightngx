@@ -20,7 +20,7 @@ import (
 
 type Rule struct {
 	Field      string `json:"field"` // path or content
-	Op         string `json:"op"`    // contains or regex
+	Op         string `json:"op"`    // contains, not_contains, regex, or not_regex
 	Value      string `json:"value"`
 	IgnoreCase bool   `json:"ignoreCase"`
 }
@@ -43,14 +43,19 @@ func compile(t store.Tag) (compiled, error) {
 	}
 	sort.SliceStable(c.rules, func(i, j int) bool { return c.rules[i].Field == "path" && c.rules[j].Field != "path" })
 	for index, r := range c.rules {
-		if (r.Field != "path" && r.Field != "content") || (r.Op != "contains" && r.Op != "regex") {
+		if r.Field != "path" && r.Field != "content" {
+			return c, fmt.Errorf("invalid rule field or operator")
+		}
+		switch r.Op {
+		case "contains", "not_contains", "regex", "not_regex":
+		default:
 			return c, fmt.Errorf("invalid rule field or operator")
 		}
 		if strings.TrimSpace(r.Value) == "" || len(r.Value) > 4096 {
 			return c, fmt.Errorf("rule value must contain 1–4096 bytes of nonblank text")
 		}
 		var re *regexp.Regexp
-		if r.Op == "regex" {
+		if r.Op == "regex" || r.Op == "not_regex" {
 			pattern := r.Value
 			if r.IgnoreCase {
 				pattern = "(?i)" + pattern
@@ -61,7 +66,7 @@ func compile(t store.Tag) (compiled, error) {
 				return c, fmt.Errorf("invalid regular expression: %w", err)
 			}
 		}
-		if r.Op == "contains" && r.IgnoreCase {
+		if (r.Op == "contains" || r.Op == "not_contains") && r.IgnoreCase {
 			c.rules[index].Value = strings.ToLower(r.Value)
 		}
 		c.regex = append(c.regex, re)
@@ -206,6 +211,10 @@ func (s *Snapshot) match(d *confdir.Dir, path string, manual bool) []int64 {
 						}
 					}
 					yes = strings.Contains(text, value)
+				}
+				// An unreadable file is unknown, not proof that text is absent.
+				if r.Op == "not_contains" || r.Op == "not_regex" {
+					yes = !yes
 				}
 			}
 			if c.tag.Mode == "all" && !yes {

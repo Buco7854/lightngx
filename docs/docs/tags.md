@@ -29,7 +29,17 @@ Rules can inspect the **Path** or **Contents**, using a literal
 substring or a Go/RE2 regular expression. Matches are case-sensitive unless
 **Ignore case** is checked. Choose **All rules** for an AND or **Any rule** for
 an OR. For example, combine a path containing `sites-available/` with a content
-rule to limit a snippet tag to HTTP sites. Regular expressions use Go's syntax;
+rule to limit a snippet tag to HTTP sites.
+
+Use **Does not contain** to match files without a literal snippet, or **Does not
+match regex** to match files where the expression has no match anywhere in the
+selected path or contents. For example, a `missing-auth` tag with **All rules**,
+**Contents → Contains → `proxy_pass`**, and **Contents → Does not contain →
+`include snippets/auth-gate.conf;`** finds proxy configurations missing that
+snippet. These negative conditions support **Ignore case** and work with both
+rule modes.
+
+Regular expressions use Go's syntax;
 lookaround and backreferences are not supported. Use `(?m)` for line anchors
 or `(?s)` to let `.` match newlines.
 
@@ -37,7 +47,8 @@ Paths are relative to the configuration root and resolved through internal
 symlinks. An enabled symlink and its available source share labels. Contents
 means the file itself, including comments; included files are not expanded.
 Content rules skip binary, unreadable, and oversized files (the editor's
-`LN_MAX_EDIT_SIZE` limit). Path rules can still match oversized or binary files.
+`LN_MAX_EDIT_SIZE` limit), including negative conditions: a failed read does not
+prove that text is absent. Path rules can still match oversized or binary files.
 Escaping symlinks, directories, and special files are never scanned.
 
 Smart tags appear in their own section with a **Matches** or **No match** status.
@@ -97,7 +108,7 @@ protection for mutations:
 | PUT | `/api/config/tags?path=...` | Replace manual assignments (smart IDs are rejected): `{ "tags": [id] }` |
 
 A rule is `{ "field": "content", "op": "contains", "value": "proxy_pass",
-"ignoreCase": false }`. Fields are `content` or `path`; operators are `contains`
-or `regex`. Mode is `all` or `any`; an empty rules array means manual only.
+"ignoreCase": false }`. Fields are `content` or `path`; operators are `contains`,
+`not_contains`, `regex`, or `not_regex`. Mode is `all` or `any`; an empty rules array means manual only.
 The existing config-tree and vhost-list responses include matching tag IDs on
 files. A vhost also exposes its root-relative source `path`.

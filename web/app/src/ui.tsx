@@ -839,6 +839,7 @@ export function Combobox({
   search,
   emptyLabel = "—",
   disabled = false,
+  wrapLabel = false,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -849,6 +850,7 @@ export function Combobox({
   search?: boolean;
   emptyLabel?: string;
   disabled?: boolean;
+  wrapLabel?: boolean;
 }) {
   const listId = useId();
   const showSearch = search ?? options.length > 8;
@@ -913,7 +915,9 @@ export function Combobox({
         }}
         className={`flex min-h-[40px] w-full cursor-pointer items-center gap-2 rounded-md border border-ctrl-hi bg-panel py-1.5 pr-2.5 pl-3.5 text-sm text-fg transition-colors hover:border-ctrl-hi disabled:cursor-default disabled:opacity-50 ${focusRing}`}
       >
-        <span className={`min-w-0 flex-1 truncate text-left ${selected ? "" : "text-dim"}`}>
+        <span
+          className={`min-w-0 flex-1 text-left ${wrapLabel ? "break-words whitespace-normal" : "truncate"} ${selected ? "" : "text-dim"}`}
+        >
           {selected?.label ?? placeholder}
         </span>
         <ChevronDownIcon size={15} className="shrink-0 text-faint" aria-hidden />
@@ -989,7 +993,11 @@ export function Combobox({
                     }`}
                     title={o.label}
                   >
-                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                    <span
+                      className={`min-w-0 flex-1 ${wrapLabel ? "break-words whitespace-normal" : "truncate"}`}
+                    >
+                      {o.label}
+                    </span>
                     {o.value === value && <CheckIcon size={14} className="shrink-0" />}
                   </button>
                 ))

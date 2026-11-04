@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, type Tag } from "../../api";
 import { useConfirm } from "../../confirm";
 import { useI18n } from "../../i18n";
@@ -168,7 +169,9 @@ export default function TagWorkspace({
   useEffect(() => {
     if (error || loadError) errorRef.current?.scrollIntoView({ block: "nearest" });
   }, [error, loadError]);
-  return (
+  // Responsive filter containers can be hidden while this workspace is open.
+  // Keep its dialog outside that layout so drafts remain visible on resize.
+  return createPortal(
     <Modal
       title={title}
       closeLabel={t.close}
@@ -420,6 +423,7 @@ export default function TagWorkspace({
           <p className="mt-3 text-xs text-dim">{t.tagDeleteHint}</p>
         </div>
       )}
-    </Modal>
+    </Modal>,
+    document.body,
   );
 }
