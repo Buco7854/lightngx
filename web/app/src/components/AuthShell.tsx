@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CheckIcon, GlobeIcon, MonitorIcon, MoonIcon, SunIcon } from "../icons";
+import { ShieldIcon, CheckIcon, GlobeIcon, MonitorIcon, MoonIcon, SunIcon } from "../icons";
 import { useI18n, type Lang } from "../i18n";
 import { resolveTheme, type ThemePref } from "../theme";
 import { Card, Dropdown, Logo, MenuItem, MenuLabel } from "../ui";
@@ -41,7 +41,7 @@ export default function AuthShell({
   );
 
   return (
-    <div className="auth-backdrop relative flex flex-1 items-center justify-center p-5">
+    <div className="auth-screen relative flex flex-1 items-center justify-center">
       <div className="absolute top-3 right-3 flex items-center gap-1">
         <Dropdown ariaLabel={t.theme} variant="ghost" chevron={false} button={themeIcon}>
           {(close) => (
@@ -79,12 +79,17 @@ export default function AuthShell({
         </Dropdown>
       </div>
 
-      <div className={`flex w-full flex-col gap-5 ${wide ? "max-w-md" : "max-w-sm"}`}>
-        <div className="flex items-center justify-center gap-2.5">
-          <Logo className="h-9 w-9" />
-          <span className="text-[22px] leading-none font-bold tracking-tight">{t.appName}</span>
+      <div className="auth-layout">
+        <section className="auth-brand">
+          <div className="flex items-center gap-2.5"><Logo className="h-8 w-8" /><span className="text-[22px] font-semibold tracking-tight">{t.appName}</span></div>
+          <div><div className="auth-statement">{t.authHeadline}</div><p>{t.authDescription}</p></div>
+          <div className="auth-proof"><ShieldIcon size={16} />{t.guardedChanges}</div>
+        </section>
+        <div className={wide ? "auth-form-wrap auth-wide" : "auth-form-wrap"}>
+          <div className="auth-mobile-brand"><Logo className="h-8 w-8" />{t.appName}</div>
+          <Card className="auth-form flex flex-col gap-6">{children}</Card>
+          <div className="auth-footer">{t.authFooter}</div>
         </div>
-        <Card className="flex flex-col gap-4 p-6 elev-3 min-[420px]:p-7">{children}</Card>
       </div>
     </div>
   );

@@ -55,7 +55,7 @@ const config = {
       metadata: [
         { property: "og:site_name", content: "Lightngx" },
         { property: "og:type", content: "website" },
-        { name: "theme-color", content: "#009639" },
+        { name: "theme-color", content: "#23764d" },
         { name: "twitter:description", content: "A lightweight web UI for managing nginx." },
         { name: "twitter:image:alt", content: "Lightngx, a lightweight web UI for managing nginx" },
       ],

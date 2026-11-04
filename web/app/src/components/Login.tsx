@@ -68,7 +68,7 @@ export default function Login({
 
   return (
     <AuthShell themePref={themePref} setThemePref={setThemePref}>
-      <h2 className="m-0 text-lg font-semibold tracking-tight">{t.loginTitle}</h2>
+      <h1 className="m-0 text-lg font-semibold tracking-tight">{t.loginTitle}</h1>
       <form onSubmit={submit} className="flex flex-col gap-3.5">
         <Field
           label={t.username}

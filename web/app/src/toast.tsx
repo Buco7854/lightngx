@@ -62,7 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={t.id}
-              className={`anim-slide-up pointer-events-auto flex items-start gap-3 rounded-xl border border-line border-l-[3px] bg-raise px-3 py-3 text-sm text-fg elev-3 ${s.edge}`}
+              className={`anim-slide-up pointer-events-auto flex items-start gap-3 rounded-lg border border-line border-l-[3px] bg-raise px-3 py-3 text-sm text-fg elev-3 ${s.edge}`}
             >
               <span
                 aria-hidden

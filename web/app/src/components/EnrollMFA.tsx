@@ -19,7 +19,7 @@ export default function EnrollMFA({
   return (
     <AuthShell themePref={themePref} setThemePref={setThemePref}>
       <div>
-        <h2 className="m-0 text-lg font-semibold tracking-tight">{t.enrollTitle}</h2>
+        <h1 className="m-0 text-lg font-semibold tracking-tight">{t.enrollTitle}</h1>
         <p className="mt-1.5 mb-0 text-sm leading-relaxed text-dim">{t.enrollRequired}</p>
       </div>
       <EnrollFlow onDone={() => onDone()} />

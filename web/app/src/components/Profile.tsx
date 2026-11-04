@@ -107,15 +107,16 @@ export default function Profile({
 
   if (!local) {
     return (
-      <div className="min-h-0 flex-1 overflow-auto p-4 min-[761px]:p-6">
+      <div className="settings-page min-h-0 flex-1 overflow-auto">
         <Card className="mx-auto max-w-xl px-5 py-4 text-sm text-dim">{t.profile} · SSO</Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 min-[761px]:p-6">
-      <div className="mx-auto flex max-w-xl flex-col gap-5">
+    <div className="settings-page min-h-0 flex-1 overflow-auto">
+      <div className="workspace-heading"><div><h1>{t.profile}</h1><p>{t.profileIntro}</p></div></div>
+      <div className="settings-sections">
         <Card>
           <SectionHeading
             icon={<LockIcon size={18} />}
@@ -159,9 +160,9 @@ export default function Profile({
           <SectionHeading icon={<ShieldIcon size={18} />} title={t.twoFactor} hint={t.twoFactorHint} />
           <div className="flex flex-col gap-4 p-5">
             {/* TOTP */}
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-inset px-3.5 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-inset px-3.5 py-3">
               <div className="flex min-w-0 items-center gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ctrl text-dim">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ctrl text-dim">
                   <MonitorIcon size={17} />
                 </span>
                 <div className="min-w-0">
@@ -206,7 +207,7 @@ export default function Profile({
               )}
             </div>
             {creds.length === 0 && adding !== "webauthn" ? (
-              <p className="m-0 rounded-xl border border-dashed border-line px-4 py-5 text-center text-[13px] text-dim">
+              <p className="m-0 rounded-lg border border-dashed border-line px-4 py-5 text-center text-[13px] text-dim">
                 {t.noKeys}
               </p>
             ) : (
@@ -214,7 +215,7 @@ export default function Profile({
                 {creds.map((c) => (
                   <li
                     key={c.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-line bg-inset px-3.5 py-2.5"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-line bg-inset px-3.5 py-2.5"
                   >
                     <span className="flex min-w-0 items-center gap-2.5">
                       <KeyIcon size={16} className="shrink-0 text-faint" />
@@ -249,22 +250,23 @@ export default function Profile({
             title={t.activeSessions}
             hint={t.activeSessionsHint}
           />
-          <ul className="m-0 flex list-none flex-col divide-y divide-line-soft p-0">
+          <ul className="session-list m-0 flex min-w-0 list-none flex-col divide-y divide-line-soft p-0">
             {sessions.map((s) => (
-              <li key={s.sid} className="flex items-center justify-between gap-3 px-5 py-3.5">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ctrl text-dim">
+              <li key={s.sid} className="session-row">
+                <div className="session-identity">
+                  <span className="session-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ctrl text-dim">
                     <MonitorIcon size={17} />
                   </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-sm font-semibold">
+                      <span className="session-device text-sm font-semibold">
                         {s.browser} · {s.os}
                       </span>
                       {s.current && <Badge tone="accent">{t.thisDevice}</Badge>}
                     </div>
-                    <div className="truncate text-[12px] text-faint">
-                      {s.ip} · {t.lastSeen} {new Date(s.lastSeen).toLocaleString()}
+                    <div className="session-meta text-xs text-faint">
+                      <span>{s.ip}</span>
+                      <span>{t.lastSeen} <time dateTime={s.lastSeen}>{new Date(s.lastSeen).toLocaleString()}</time></span>
                     </div>
                   </div>
                 </div>

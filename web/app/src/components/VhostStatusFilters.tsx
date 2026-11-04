@@ -70,7 +70,7 @@ export default function VhostStatusFilters({
     [sites],
   );
   return (
-    <div className="flex max-w-full items-end gap-2.5">
+    <div className="status-filter-fields flex max-w-full items-end gap-2.5">
       <div className="min-w-0 flex-1 space-y-1">
         <span className="block text-[11px] font-medium text-dim">{t.colEnabled}</span>
         <Combobox
@@ -108,7 +108,7 @@ export default function VhostStatusFilters({
           aria-label={t.clearStatusFilters}
           title={t.clearStatusFilters}
           onClick={filters.clear}
-          className="mb-1 shrink-0"
+          className="status-filter-clear mb-1 shrink-0"
         >
           <XIcon size={14} />
         </IconBtn>

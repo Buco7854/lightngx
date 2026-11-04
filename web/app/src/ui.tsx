@@ -157,7 +157,10 @@ function useMenu({ align = "right", matchWidth = false } = {}) {
     focusLast.current = last;
     setOpen(true);
   };
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => {
+    setOpen(false);
+    anchorRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, []);
   return {
     open,
     setOpen,
@@ -173,14 +176,14 @@ function useMenu({ align = "right", matchWidth = false } = {}) {
 
 export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={`rounded-2xl border border-line bg-panel elev-1 ${className}`}>{children}</div>
+    <div className={`ui-card rounded-lg border border-line bg-panel ${className}`}>{children}</div>
   );
 }
 
 export function Toolbar({ className = "", children }: { className?: string; children: ReactNode }) {
   return (
     <div
-      className={`flex min-h-[60px] shrink-0 flex-wrap items-center gap-2.5 border-b border-line bg-panel px-3 py-2.5 min-[761px]:px-5 ${className}`}
+      className={`ui-toolbar flex min-h-[64px] shrink-0 flex-wrap items-center gap-3 border-b border-line-soft bg-panel px-4 py-3 min-[761px]:px-6 ${className}`}
     >
       {children}
     </div>
@@ -195,11 +198,11 @@ export function PageTitle({
   className?: string;
 }) {
   return (
-    <h1
-      className={`m-0 truncate text-[17px] leading-tight font-semibold tracking-tight ${className}`}
+    <div
+      className={`m-0 truncate text-[15px] leading-tight font-medium tracking-tight ${className}`}
     >
       {children}
-    </h1>
+    </div>
   );
 }
 
@@ -215,9 +218,9 @@ export function SectionHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-3 border-b border-line-soft px-5 py-4">
+    <div className="section-heading flex items-start gap-3 border-b border-line-soft px-5 py-4">
       {icon && (
-        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-ink">
+        <span className="section-icon mt-0.5 flex shrink-0 items-center justify-center text-dim">
           {icon}
         </span>
       )}
@@ -246,14 +249,14 @@ const btnBase =
   `disabled:opacity-50 disabled:cursor-default ${focusRing}`;
 
 const btnSizes: Record<Size, string> = {
-  sm: "min-h-[32px] gap-1.5 rounded-lg px-2.5 text-[13px]",
-  md: "min-h-[38px] gap-2 rounded-lg px-3.5 text-sm",
-  lg: "min-h-[44px] gap-2 rounded-xl px-5 text-[15px]",
+  sm: "min-h-[32px] gap-1.5 rounded-md px-2.5 text-[13px]",
+  md: "min-h-[38px] gap-2 rounded-md px-3.5 text-sm",
+  lg: "min-h-[44px] gap-2 rounded-md px-5 text-[15px]",
 };
 
 const btnVariants: Record<Variant, string> = {
   default: "border border-line bg-panel text-fg elev-1 enabled:hover:bg-hov",
-  primary: "bg-accent text-accent-fg dark:text-bg font-semibold elev-1 enabled:hover:bg-accent-hi",
+  primary: "bg-accent text-accent-fg  font-semibold elev-1 enabled:hover:bg-accent-hi",
   danger: "border border-danger/25 bg-danger-soft text-danger-ink enabled:hover:border-danger/40",
   "danger-solid": "bg-danger text-white font-semibold elev-1 enabled:hover:bg-danger-ink",
   ghost: "text-dim enabled:hover:bg-hov enabled:hover:text-fg",
@@ -265,7 +268,7 @@ const btnVariants: Record<Variant, string> = {
 // variants; the disabled states they guard against cannot happen on a link.
 const btnLinkVariants: Record<Variant, string> = {
   default: "border border-line bg-panel text-fg elev-1 hover:bg-hov",
-  primary: "bg-accent text-accent-fg dark:text-bg font-semibold elev-1 hover:bg-accent-hi",
+  primary: "bg-accent text-accent-fg  font-semibold elev-1 hover:bg-accent-hi",
   danger: "border border-danger/25 bg-danger-soft text-danger-ink hover:border-danger/40",
   "danger-solid": "bg-danger text-white font-semibold elev-1 hover:bg-danger-ink",
   ghost: "text-dim hover:bg-hov hover:text-fg",
@@ -329,7 +332,7 @@ export function IconBtn({
 // Shared text-input styling: an inset fill + 1px border so fields read as
 // editable against the panel, not flush with it.
 const inputCls =
-  "min-h-[40px] w-full rounded-lg border border-line bg-inset px-3.5 text-sm text-fg " +
+  "min-h-[40px] w-full rounded-md border border-ctrl-hi bg-panel px-3.5 text-sm text-fg " +
   "placeholder:text-dim focus:border-accent/50 focus:outline-2 focus:outline-accent/50";
 
 export function Input({
@@ -369,7 +372,7 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
-        className="min-h-[38px] w-full rounded-lg border border-line bg-inset pr-9 pl-9 text-sm text-fg placeholder:text-dim focus:border-accent/50 focus:outline-2 focus:outline-accent/50"
+        className="min-h-[38px] w-full rounded-md border border-ctrl-hi bg-panel pr-9 pl-9 text-sm text-fg placeholder:text-dim focus:border-accent/50 focus:outline-2 focus:outline-accent/50"
       />
       {value && (
         <button
@@ -408,7 +411,7 @@ export function Checkbox({
         checked={checked}
         onChange={onChange}
         aria-label={ariaLabel}
-        className={`peer h-[19px] w-[19px] disabled:cursor-default disabled:opacity-50 cursor-pointer appearance-none rounded-[6px] border border-ctrl-hi bg-panel transition-colors checked:border-accent checked:bg-accent hover:border-faint ${focusRing}`}
+        className={`peer h-[19px] w-[19px] disabled:cursor-default disabled:opacity-50 cursor-pointer appearance-none rounded-[4px] border border-ctrl-hi bg-panel transition-colors checked:border-accent checked:bg-accent hover:border-faint ${focusRing}`}
       />
       {indeterminate && !checked ? (
         <span className="pointer-events-none absolute top-[8px] left-[4px] h-[3px] w-[11px] rounded-full bg-faint" />
@@ -501,7 +504,7 @@ export function Segmented<T extends string>({
                 [next]?.focus();
             }}
             onClick={() => onChange(o.value)}
-            className={`inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${focusRing} ${
+            className={`inline-flex min-h-[30px] cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium whitespace-nowrap transition-colors ${focusRing} ${
               active ? "bg-panel text-fg elev-1" : "text-dim hover:text-fg"
             }`}
           >
@@ -531,6 +534,7 @@ export function Modal({
   onClose,
   footer,
   closeLabel = "Close",
+  mobileSheet = false,
   children,
 }: {
   title: string;
@@ -540,6 +544,7 @@ export function Modal({
   onClose: () => void;
   footer?: ReactNode;
   closeLabel?: string;
+  mobileSheet?: boolean;
   children: ReactNode;
 }) {
   const backdropPointer = useRef<number | null>(null);
@@ -599,7 +604,7 @@ export function Modal({
   const maxW = size === "sm" ? "max-w-sm" : size === "lg" ? "max-w-lg" : "max-w-md";
   return (
     <div
-      className="anim-fade fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]"
+      className={`modal-backdrop ${mobileSheet ? "mobile-sheet" : ""} anim-fade fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4`}
       onPointerDownCapture={(e) => {
         backdropPointer.current = e.target === e.currentTarget ? e.pointerId : null;
       }}
@@ -619,7 +624,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`anim-rise flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-2xl border border-line bg-raise elev-3 ${maxW}`}
+        className={`modal-panel anim-rise flex min-w-0 max-h-[calc(100dvh-2rem)] w-full flex-col rounded-lg border border-line bg-raise elev-3 ${maxW}`}
       >
         <div className="flex items-start gap-3 px-5 pt-5">
           {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
@@ -812,7 +817,7 @@ export function MenuItem({
 
 export function MenuLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="px-3 pt-1.5 pb-1 text-[11px] font-semibold tracking-wider text-faint uppercase">
+    <span className="px-3 pt-1.5 pb-1 text-xs font-medium text-faint">
       {children}
     </span>
   );
@@ -906,7 +911,7 @@ export function Combobox({
             else menu.setOpen(true);
           }
         }}
-        className={`flex min-h-[40px] w-full cursor-pointer items-center gap-2 rounded-lg border border-line bg-inset py-1.5 pr-2.5 pl-3.5 text-sm text-fg transition-colors hover:border-ctrl-hi disabled:cursor-default disabled:opacity-50 ${focusRing}`}
+        className={`flex min-h-[40px] w-full cursor-pointer items-center gap-2 rounded-md border border-ctrl-hi bg-panel py-1.5 pr-2.5 pl-3.5 text-sm text-fg transition-colors hover:border-ctrl-hi disabled:cursor-default disabled:opacity-50 ${focusRing}`}
       >
         <span className={`min-w-0 flex-1 truncate text-left ${selected ? "" : "text-dim"}`}>
           {selected?.label ?? placeholder}
@@ -938,7 +943,7 @@ export function Combobox({
                   }}
                   onChange={(e) => setQuery(e.target.value)}
                   aria-label={ariaLabel}
-                  className="w-full rounded-lg border border-line bg-inset py-2 pr-2.5 pl-8 text-[13px] focus:outline-2 focus:outline-accent/50"
+                  className="w-full rounded-md border border-ctrl-hi bg-panel py-2 pr-2.5 pl-8 text-[13px] focus:outline-2 focus:outline-accent/50"
                 />
               </div>
             )}
@@ -1063,7 +1068,7 @@ export function StatusDot({
   return (
     <span className="relative inline-flex h-2.5 w-2.5 shrink-0">
       {pulse && on && (
-        <span className={`absolute inset-0 animate-ping rounded-full opacity-60 ${fill}`} />
+        <span className={`absolute inset-0 rounded-full opacity-60 ${fill}`} />
       )}
       <span className={`relative h-2.5 w-2.5 rounded-full ring-[3px] ${fill} ${ring}`} />
     </span>
@@ -1107,7 +1112,7 @@ export function EmptyState({
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center">
       {icon && (
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-panel text-faint elev-1">
+        <span className="flex h-10 w-10 items-center justify-center text-faint">
           {icon}
         </span>
       )}
@@ -1251,19 +1256,13 @@ export function Avatar({
 }
 
 export function Logo({ className = "h-7 w-7" }: { className?: string }) {
-  const gid = `ln-mark-${useId()}`;
+
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0" stopColor="var(--color-accent)" />
-          <stop offset="1" stopColor="var(--color-accent-hi)" />
-        </linearGradient>
-      </defs>
       <polygon
         points="50 14 81.2 32 81.2 68 50 86 18.8 68 18.8 32"
-        fill={`url(#${gid})`}
-        stroke={`url(#${gid})`}
+        fill="var(--color-accent)"
+        stroke="var(--color-accent)"
         strokeWidth="12"
         strokeLinejoin="round"
       />

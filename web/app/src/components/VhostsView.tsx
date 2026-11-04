@@ -5,6 +5,7 @@ import {
   BackIcon,
   ChevronRightIcon,
   CopyIcon,
+  FilterIcon,
   GlobeIcon,
   MoreIcon,
   PencilIcon,
@@ -12,6 +13,7 @@ import {
   StreamIcon,
   TrashIcon,
   WrenchIcon,
+  CheckIcon,
 } from "../icons";
 import { useI18n } from "../i18n";
 import { hrefWithQuery, Link, setQuery, useLocation } from "../router";
@@ -28,7 +30,6 @@ import {
   IconBtn,
   Loading,
   MenuItem,
-  MonoTag,
   Pagination,
   SearchInput,
   Spinner,
@@ -36,6 +37,7 @@ import {
   Toolbar,
 } from "../ui";
 import { FileTagsButton, TagBadges, TagFilters, useTagFilter, useTags } from "./Tags";
+import FilterSheet from "./FilterSheet";
 import VhostStatusFilters, { useVhostStatus } from "./VhostStatusFilters";
 import SaveButton from "./SaveButton";
 import CodeEditor from "./CodeEditor";
@@ -76,13 +78,7 @@ const tones: Record<State, "ok" | "warn" | "neutral"> = {
   disabled: "neutral",
 };
 
-const tiles: Record<State, string> = {
-  enabled: "bg-ok-soft text-ok-ink",
-  maintenance: "bg-warn-soft text-warn-ink",
-  disabled: "bg-ctrl text-faint",
-};
-
-const COL_LABEL = "text-[10.5px] font-semibold tracking-wide text-faint uppercase";
+const COL_LABEL = "text-xs font-normal text-dim";
 
 function DomainList({ domains }: { domains: string[] | null }) {
   if (!domains || domains.length === 0) return null;
@@ -91,7 +87,7 @@ function DomainList({ domains }: { domains: string[] | null }) {
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-1">
       {shown.map((d) => (
-        <MonoTag key={d}>{d}</MonoTag>
+        <span className="domain-name" key={d}>{d}</span>
       ))}
       {rest > 0 && <span className="text-[11.5px] text-faint">+{rest}</span>}
     </span>
@@ -125,6 +121,7 @@ export default function VhostsView({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const refresh = useCallback(() => {
     api
@@ -305,24 +302,44 @@ export default function VhostsView({
   const newLabel = kind === "sites" ? t.newSite : t.newStream;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div className="vhosts-workspace flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="workspace-heading">
+        <div><h1>{kind === "sites" ? t.navSites : t.navStreams}</h1><p>{kind === "sites" ? t.sitesIntro : t.streamsIntro}</p></div>
+        <Btn variant="primary" className="shrink-0" onClick={create}><PlusIcon size={16} />{newLabel}</Btn>
+      </div>
+      <dl className="site-summary">
+        <div className="summary-cell"><dt>{kind === "sites" ? t.totalSites : t.totalStreams}</dt><dd>{sites.length}</dd></div>
+        <div className="summary-cell"><dt><i className="summary-dot ok" />{t.serving}</dt><dd>{sites.filter(s => s.enabled && !s.maintenance).length}</dd></div>
+        <div className="summary-cell"><dt><i className="summary-dot warn" />{t.stateMaintenance}</dt><dd>{sites.filter(s => s.maintenance).length}</dd></div>
+        <div className="summary-cell"><dt><i className="summary-dot" />{t.stateDisabled}</dt><dd>{sites.filter(s => !s.enabled && !s.maintenance).length}</dd></div>
+      </dl>
       <Toolbar>
-        <VhostStatusFilters sites={sites} maintenanceAvailable={maintenanceOK} filters={statusFilter} />
-        <div className="flex min-w-[200px] flex-1 items-center justify-end gap-2.5">
+        <div className="vhost-status-filters desktop-filters"><VhostStatusFilters sites={sites} maintenanceAvailable={maintenanceOK} filters={statusFilter} /></div>
+        <div className="vhost-search flex min-w-[200px] flex-1 items-center justify-end gap-2.5">
           <SearchInput
             value={filter}
             onChange={setFilter}
             placeholder={t.filterVhosts}
-            className="min-w-0 flex-1 max-w-[300px]"
+            className="min-w-0 flex-1 min-[761px]:max-w-[300px]"
           />
-          <Btn variant="primary" className="shrink-0" onClick={create}>
-            <PlusIcon size={17} />
-            <span className="max-[520px]:hidden">{newLabel}</span>
-          </Btn>
+
+          <Btn className="min-[761px]:hidden" aria-expanded={filtersOpen} aria-haspopup="dialog" aria-label={t.filters} onClick={() => setFiltersOpen(!filtersOpen)}><FilterIcon size={16} />{t.filters}{(statusFilter.active || tagFilter.active) && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}</Btn>
         </div>
       </Toolbar>
 
-      <TagFilters tags={tagData.tags} error={tagData.error} onChanged={() => { tagData.refresh(); refresh(); }} />
+      <div className="vhost-tags desktop-filters"><TagFilters tags={tagData.tags} error={tagData.error} onChanged={() => { tagData.refresh(); refresh(); }} /></div>
+
+      <FilterSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        active={statusFilter.active || tagFilter.active}
+        onReset={() => setQuery({ state: null, enabled: null, maintenance: null, tags: null, excludeTags: null })}
+        resultCount={filtered.length}
+        tags={tagData.tags}
+        tagError={tagData.error}
+        onTagsChanged={() => { tagData.refresh(); refresh(); }}
+        status={<VhostStatusFilters sites={sites} maintenanceAvailable={maintenanceOK} filters={statusFilter} />}
+      />
 
       {selected.size > 0 && (
         <div className="anim-slide-up flex flex-wrap items-center gap-2 border-b border-line bg-accent-soft px-3 py-2.5 min-[761px]:px-5">
@@ -355,7 +372,7 @@ export default function VhostsView({
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3 min-[761px]:p-5">
+      <div className="site-table-area flex min-h-0 flex-1 flex-col">
         {sites.length === 0 ? (
           <EmptyState
             icon={<KindIcon size={26} />}
@@ -370,15 +387,15 @@ export default function VhostsView({
         ) : filtered.length === 0 ? (
           <EmptyState icon={<KindIcon size={26} />} title={t.noMatches} hint={t.noMatchesHint} />
         ) : (
-          <Card className="mx-auto w-full max-w-5xl shrink-0 overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-line-soft bg-inset/60 px-3 py-2.5 min-[761px]:px-4">
+          <Card className="site-table mx-auto w-full shrink-0 overflow-hidden">
+            <div className="site-table-head flex items-center gap-3 border-b border-line-soft">
               <Checkbox
                 checked={allSelected}
                 indeterminate={someSelected}
                 onChange={toggleAll}
                 ariaLabel={t.selectAll}
               />
-              <span aria-live="polite" className="text-[12px] font-medium tracking-wide text-faint uppercase">
+              <span aria-live="polite" className="text-xs font-normal text-dim">
                 {t.itemsCount(filtered.length)}
               </span>
               <span className="ml-auto flex items-center gap-4 max-[760px]:hidden">
@@ -398,7 +415,7 @@ export default function VhostsView({
                 return (
                   <div
                     key={s.name}
-                    className="group relative flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-3 px-3 py-3 transition-colors hover:bg-hov min-[761px]:px-4"
+                    className="site-row group relative flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-3 transition-colors"
                   >
                     {/* The row itself is the link, stretched across the whole
                         cell so it can be opened in a new tab; the controls
@@ -417,17 +434,10 @@ export default function VhostsView({
                       />
                     </span>
 
-                    <span
-                      aria-hidden
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tiles[st]}`}
-                    >
-                      {st === "maintenance" ? <WrenchIcon size={17} /> : <KindIcon size={17} />}
-                    </span>
-
-                    <div className="flex min-w-[150px] flex-1 flex-col gap-1">
+                    <div className="site-identity flex min-w-[150px] flex-1 flex-col gap-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate font-mono text-[14.5px] font-semibold">{s.name}</span>
-                        <Badge tone={tones[st]}>
+                        <span className="site-name truncate font-mono">{s.name}</span>
+                        <Badge className="site-state" tone={tones[st]}>
                           {st === "enabled"
                             ? t.stateEnabled
                             : st === "maintenance"
@@ -439,7 +449,7 @@ export default function VhostsView({
                       <TagBadges ids={s.tags} tags={tagData.tags} />
                     </div>
 
-                    <div className="relative z-10 flex shrink-0 items-center gap-3 min-[761px]:gap-4">
+                    <div className="row-actions relative z-10 flex shrink-0 items-center gap-3 min-[761px]:gap-4">
                       {maintenanceOK && (
                         <div className="flex items-center gap-2 min-[761px]:w-[104px] min-[761px]:justify-center">
                           <span className={`${COL_LABEL} min-[761px]:hidden`}>
@@ -525,6 +535,7 @@ export default function VhostsView({
             </div>
           </Card>
         )}
+        {sites.length > 0 && <div className="site-list-foot"><span>{t.itemsCount(filtered.length)}</span><span><CheckIcon size={14} />{t.guardedChanges}</span></div>}
         {pages > 1 && (
           <div className="mx-auto w-full max-w-5xl shrink-0 pt-3">
             <Pagination
@@ -626,13 +637,13 @@ function VhostEditor({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <Toolbar className="gap-3">
+      <Toolbar className="file-editor-toolbar gap-3">
         <IconBtn onClick={back} aria-label={t.back}>
           <BackIcon size={18} />
         </IconBtn>
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="editor-file-title flex min-w-0 flex-1 flex-col">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate font-mono text-[14.5px] font-semibold">{name}</span>
+            <h1 className="m-0 truncate font-mono text-[14.5px] font-semibold">{name}</h1>
             {st && (
               <Badge tone={tones[st]}>
                 {st === "enabled"
@@ -687,7 +698,7 @@ function VhostEditor({
             <RailSection label={kind === "sites" ? t.colDomains : t.colTargets}>
               <div className="flex flex-wrap gap-1 max-[899px]:hidden">
                 {site.domains.map((d) => (
-                  <MonoTag key={d}>{d}</MonoTag>
+                  <span className="domain-name" key={d}>{d}</span>
                 ))}
               </div>
             </RailSection>

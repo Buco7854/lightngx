@@ -334,3 +334,7 @@ export const BoltIcon = (p: P) => (
     <path d="m13 2-9 12h7l-1 8 10-12h-7l1-8Z" />
   </I>
 );
+
+export const FilterIcon = (p: P) => (
+  <I {...p}><path d="M4 7h16M7 12h10M10 17h4" /></I>
+);

@@ -6,6 +6,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   FileIcon,
+  FilterIcon,
   FolderIcon,
   FolderPlusIcon,
   LinkIcon,
@@ -31,6 +32,7 @@ import {
   Toolbar,
 } from "../ui";
 import { FileTagsButton, TagBadges, TagFilters, useTagFilter, useTags } from "./Tags";
+import FilterSheet from "./FilterSheet";
 import SaveButton from "./SaveButton";
 import CodeEditor from "./CodeEditor";
 import { EditorRail, EditorStatus, RailSection } from "./EditorShell";
@@ -184,6 +186,7 @@ export default function ConfigView({
   const [tree, setTree] = useState<TreeEntry | null>(null);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
   const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [treeWidth, setTreeWidth] = useState(storedTreeWidth);
   const file = useFileEditor(onAuthLost);
   const restored = useRef(false);
@@ -397,13 +400,13 @@ export default function ConfigView({
   const openName = file.path?.slice(openDir.length) ?? "";
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div className="config-workspace flex min-h-0 min-w-0 flex-1">
       <aside
         className="relative hidden shrink-0 flex-col border-r border-line bg-panel min-[900px]:flex"
         style={{ width: treeWidth }}
       >
         <div className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
-          <span className="flex-1 text-[11px] font-semibold tracking-wider text-faint uppercase">
+          <span className="flex-1 text-xs font-medium text-dim">
             {t.folders}
           </span>
           <IconBtn size="sm" onClick={newDir} title={t.newDir} aria-label={t.newDir}>
@@ -438,15 +441,15 @@ export default function ConfigView({
       <section className="flex min-h-0 min-w-0 flex-1 flex-col">
         {file.path !== null ? (
           <>
-            <Toolbar className="gap-3">
+            <Toolbar className="file-editor-toolbar gap-3">
               <IconBtn onClick={closeFile} aria-label={t.back}>
                 <BackIcon size={18} />
               </IconBtn>
-              <div className="flex min-w-0 flex-1 flex-col">
+              <div className="editor-file-title flex min-w-0 flex-1 flex-col">
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-mono text-[14.5px] font-semibold" title={file.path}>
+                  <h1 className="m-0 truncate font-mono text-[14.5px] font-semibold" title={file.path}>
                     {openName}
-                  </span>
+                  </h1>
                   {file.readOnly && <Badge tone="warn">{t.readOnly}</Badge>}
                   {file.dirty && <Badge tone="warn">{t.unsaved}</Badge>}
                 </div>
@@ -513,14 +516,16 @@ export default function ConfigView({
           </>
         ) : (
           <>
-            <Toolbar>
+            <div className="workspace-heading"><div><h1>{t.tabEditor}</h1><p>{t.configIntro}</p></div></div>
+            <Toolbar className="config-browser-toolbar">
               {breadcrumbs}
               <SearchInput
                 value={filter}
                 onChange={setFilter}
                 placeholder={t.filterEntries}
-                className="w-[220px] shrink-0 max-[560px]:w-full"
+                className="config-search w-[220px] min-w-0 shrink-0"
               />
+              <Btn className="config-filter-button min-[761px]:hidden" aria-label={t.filters} aria-haspopup="dialog" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(true)}><FilterIcon size={16} />{t.filters}{tagFilter.active && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />}</Btn>
               <Btn className="shrink-0" onClick={newDir} title={t.newDir}>
                 <FolderPlusIcon size={17} /> <span className="max-[900px]:hidden">{t.newDir}</span>
               </Btn>
@@ -528,9 +533,10 @@ export default function ConfigView({
                 <PlusIcon size={17} /> <span className="max-[900px]:hidden">{t.newFile}</span>
               </Btn>
             </Toolbar>
-            <TagFilters tags={tagData.tags} error={tagData.error} onChanged={() => { tagData.refresh(); refresh(); }} />
+            <div className="desktop-filters"><TagFilters tags={tagData.tags} error={tagData.error} onChanged={() => { tagData.refresh(); refresh(); }} /></div>
+            <FilterSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} active={tagFilter.active} onReset={tagFilter.clear} resultCount={entries.length} tags={tagData.tags} tagError={tagData.error} onTagsChanged={() => { tagData.refresh(); refresh(); }} />
             <span role="status" className="sr-only">{t.itemsCount(entries.length)}</span>
-            <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3 min-[761px]:p-5">
+            <div className="config-list-area flex min-h-0 flex-1 flex-col overflow-auto p-4 min-[761px]:p-6">
               {!tree ? (
                 <Loading />
               ) : entries.length === 0 ? (
@@ -553,8 +559,8 @@ export default function ConfigView({
                   />
                 )
               ) : (
-                <div className="mx-auto flex w-full max-w-4xl shrink-0 flex-col gap-3">
-                <Card className="w-full overflow-hidden">
+                <div className="flex w-full shrink-0 flex-col gap-3">
+                <Card className="config-file-list w-full overflow-hidden">
                   <ul className="m-0 flex list-none flex-col divide-y divide-line-soft p-0">
                     {shown.map((e) => (
                       <li
@@ -570,9 +576,7 @@ export default function ConfigView({
                         >
                           <span
                             aria-hidden
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                              e.isDir ? "bg-accent-soft text-accent-ink" : "bg-ctrl text-dim"
-                            }`}
+                            className="flex w-5 shrink-0 items-center justify-center text-dim"
                           >
                             {e.isDir ? <FolderIcon size={17} /> : <FileIcon size={17} />}
                           </span>

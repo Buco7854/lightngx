@@ -176,7 +176,7 @@ export default function Users({
           return (
             <li
               key={u.id}
-              className="flex flex-wrap items-center gap-x-3 gap-y-2.5 rounded-xl border border-line bg-inset px-3 py-2.5"
+              className="flex flex-wrap items-center gap-x-3 gap-y-2.5 rounded-lg border border-line bg-inset px-3 py-2.5"
             >
               <Avatar name={u.username} />
               <div className="flex min-w-[120px] flex-1 flex-col gap-1">

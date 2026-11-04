@@ -118,7 +118,7 @@ export default function TagForm({
                 disabled={busy}
               />
             </div>
-            <div className="overflow-hidden rounded-xl border border-line">
+            <div className="overflow-hidden rounded-lg border border-line">
               {drafts.map((draft, index) => (
                 <div key={draft.id}>
                   {index > 0 && (

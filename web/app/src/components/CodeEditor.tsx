@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useI18n } from "../i18n";
 import { Annotation, EditorState, Compartment } from "@codemirror/state";
 import {
   EditorView,
@@ -122,6 +123,7 @@ export default function CodeEditor({
   onSave: () => void;
   onCursor?: (line: number, col: number) => void;
 }) {
+  const { t } = useI18n();
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const themeCompartment = useRef(new Compartment());
@@ -138,6 +140,7 @@ export default function CodeEditor({
     const state = EditorState.create({
       doc: value,
       extensions: [
+        EditorView.contentAttributes.of({ "aria-label": "nginx" }),
         lineNumbers(),
         highlightActiveLine(),
         highlightActiveLineGutter(),
@@ -178,6 +181,8 @@ export default function CodeEditor({
     });
     const editor = new EditorView({ state, parent: host.current });
     view.current = editor;
+    editor.scrollDOM.tabIndex = 0;
+    editor.scrollDOM.setAttribute("aria-label", "nginx");
 
     // Handle Select All during capture so the browser cannot apply it to the
     // surrounding page before CodeMirror updates its document selection.
@@ -207,6 +212,10 @@ export default function CodeEditor({
     // Recreated only when the document identity changes via key prop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    view.current?.contentDOM.setAttribute("aria-label", `nginx · ${t.tabEditor}`);
+  }, [t.tabEditor]);
 
   useEffect(() => {
     view.current?.dispatch({

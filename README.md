@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/static/img/logo.svg" alt="" width="92" height="92">
+  <img src="docs/static/img/banner.png" alt="Lightngx — a lightweight web UI for managing nginx" width="1120">
 </p>
-
-<h1 align="center">Lightngx</h1>
 
 A lightweight web UI for managing nginx.
 

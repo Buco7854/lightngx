@@ -175,7 +175,7 @@ export default function TagWorkspace({
       size="lg"
       onClose={() => void leave(true)}
       icon={
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent-soft text-accent-ink">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-soft text-accent-ink">
           <TagIcon size={18} />
         </span>
       }
@@ -252,7 +252,7 @@ export default function TagWorkspace({
       )}
       {view.kind === "list" ? (
         <>
-          <div className="mb-4 flex items-center gap-2">
+          <div className="tag-workspace-toolbar mb-4 flex items-center gap-2">
             <SearchInput
               value={query}
               onChange={setQuery}
@@ -298,7 +298,7 @@ export default function TagWorkspace({
               <p className="mb-3 text-[12px] leading-relaxed text-dim">
                 {path ? t.tagFileHint : t.tagManagerHint}
               </p>
-              <div className="divide-y divide-line-soft rounded-xl border border-line-soft">
+              <div className="divide-y divide-line-soft rounded-lg border border-line-soft">
                 {grouped.map((tag, index) => {
                   const manual = file.data?.manual.includes(tag.id) ?? false;
                   const automatic = file.data?.automatic.includes(tag.id) ?? false;

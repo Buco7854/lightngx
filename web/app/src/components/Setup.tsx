@@ -39,7 +39,7 @@ export default function Setup({
   return (
     <AuthShell themePref={themePref} setThemePref={setThemePref}>
       <div>
-        <h2 className="m-0 text-lg font-semibold tracking-tight">{t.setupTitle}</h2>
+        <h1 className="m-0 text-lg font-semibold tracking-tight">{t.setupTitle}</h1>
         <p className="mt-1.5 mb-0 text-sm leading-relaxed text-dim">{t.setupIntro}</p>
       </div>
       <form onSubmit={submit} className="flex flex-col gap-3.5">

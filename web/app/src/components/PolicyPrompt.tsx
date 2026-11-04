@@ -28,7 +28,7 @@ export default function PolicyPrompt({ onDone }: { onDone: () => void }) {
   }
 
   const Row = ({ role, label }: { role: Role; label: string }) => (
-    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-inset px-3.5 py-3 transition-colors hover:border-accent/40">
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-line bg-inset px-3.5 py-3 transition-colors hover:border-accent/40">
       <Checkbox
         checked={roles[role]}
         onChange={() => setRoles({ ...roles, [role]: !roles[role] })}
@@ -39,10 +39,10 @@ export default function PolicyPrompt({ onDone }: { onDone: () => void }) {
   );
 
   return (
-    <div className="anim-fade fixed inset-0 z-[65] flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
-      <div className="anim-rise flex w-full max-w-md flex-col gap-4 rounded-2xl border border-line bg-raise p-6 elev-3">
+    <div className="anim-fade fixed inset-0 z-[65] flex items-center justify-center bg-black/50 p-4">
+      <div className="anim-rise flex w-full max-w-md flex-col gap-4 rounded-lg border border-line bg-raise p-6 elev-3">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent-ink">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-ink">
             <ShieldIcon size={18} />
           </span>
           <div className="min-w-0">

@@ -113,7 +113,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             size="sm"
             icon={
               <span
-                className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                className={`flex h-9 w-9 items-center justify-center rounded-lg ${
                   confirmP.opts.danger ? "bg-danger-soft text-danger-ink" : "bg-accent-soft text-accent-ink"
                 }`}
               >

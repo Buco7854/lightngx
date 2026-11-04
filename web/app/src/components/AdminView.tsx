@@ -55,8 +55,9 @@ export default function AdminView({ onAuthLost }: { onAuthLost: () => void }) {
     selected.length === 0 ? t.policyRolesNone : selected.map((r) => r.label).join(", ");
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto p-4 min-[761px]:p-6">
-      <div className="mx-auto flex max-w-3xl flex-col gap-5">
+    <div className="settings-page min-h-0 flex-1 overflow-auto">
+      <div className="workspace-heading"><div><h1>{t.navAdmin}</h1><p>{t.adminIntro}</p></div></div>
+      <div className="settings-sections">
         <Card>
           <SectionHeading
             icon={<ShieldIcon size={18} />}

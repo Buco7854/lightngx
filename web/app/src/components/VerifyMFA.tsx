@@ -73,7 +73,7 @@ export default function VerifyMFA({
   return (
     <AuthShell themePref={themePref} setThemePref={setThemePref}>
       <div>
-        <h2 className="m-0 text-lg font-semibold tracking-tight">{t.verifyTitle}</h2>
+        <h1 className="m-0 text-lg font-semibold tracking-tight">{t.verifyTitle}</h1>
         <p className="mt-1.5 mb-0 text-sm leading-relaxed text-dim">
           {mode === "totp" ? t.verifyIntro : t.webauthnPrompt}
         </p>

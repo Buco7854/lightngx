@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   FolderIcon,
   GlobeIcon,
@@ -32,17 +32,32 @@ interface Props {
 export default function AppSidebar(props: Props) {
   const { t } = useI18n();
   const { open, onClose } = props;
+  const drawerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const controls = () => Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled)') ?? []).filter(el => el.getClientRects().length > 0);
+    controls()[0]?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      if (e.key === "Tab") {
+        const items = controls();
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+      }
     };
+    const onResize = () => { if (window.innerWidth >= 1100) onClose(); };
+    window.addEventListener("resize", onResize);
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
       document.body.style.overflow = "";
+      previous?.focus();
     };
   }, [open, onClose]);
 
@@ -56,13 +71,13 @@ export default function AppSidebar(props: Props) {
           onClose();
         }}
         aria-current={active ? "page" : undefined}
-        className={`flex min-h-[42px] w-full cursor-pointer touch-manipulation items-center gap-3 rounded-xl px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`flex min-h-[40px] w-full cursor-pointer touch-manipulation items-center gap-3 rounded-md px-3 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
           active
-            ? "bg-accent-soft font-semibold text-accent-ink"
-            : "font-medium text-dim hover:bg-hov hover:text-fg"
+            ? "bg-ctrl font-medium text-fg"
+            : "font-normal text-dim hover:bg-hov hover:text-fg"
         }`}
       >
-        <span className={`shrink-0 ${active ? "text-accent-ink" : "text-faint"}`}>{icon}</span>
+        <span className={`shrink-0 ${active ? "text-fg" : "text-faint"}`}>{icon}</span>
         <span className="truncate">{label}</span>
       </Link>
     );
@@ -70,7 +85,7 @@ export default function AppSidebar(props: Props) {
 
   const group = (label: string, children: ReactNode) => (
     <div className="flex flex-col gap-1 px-3">
-      <span className="px-3 pt-3 pb-1 text-[11px] font-semibold tracking-wider text-faint uppercase">
+      <span className="px-3 pt-6 pb-2 text-xs font-medium text-faint">
         {label}
       </span>
       {children}
@@ -79,7 +94,7 @@ export default function AppSidebar(props: Props) {
 
   const content = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex h-[60px] shrink-0 items-center gap-2.5 border-b border-line px-4">
+      <div className="flex h-[64px] shrink-0 items-center gap-2.5 px-6">
         <Link
           href={`/${props.home}`}
           onNavigate={() => {
@@ -90,9 +105,9 @@ export default function AppSidebar(props: Props) {
           aria-label={t.appName}
         >
           <Logo className="h-7 w-7 shrink-0" />
-          <span className="truncate text-[17px] font-bold tracking-tight">{t.appName}</span>
+          <span className="truncate text-[19px] font-semibold tracking-tight">{t.appName}</span>
         </Link>
-        <IconBtn size="sm" className="ml-auto min-[761px]:hidden" onClick={onClose} aria-label={t.close}>
+        <IconBtn size="sm" className="ml-auto min-[1100px]:hidden" onClick={onClose} aria-label={t.close}>
           <XIcon size={18} />
         </IconBtn>
       </div>
@@ -117,9 +132,9 @@ export default function AppSidebar(props: Props) {
       </div>
 
       <div className="shrink-0 border-t border-line p-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-        <div className="flex items-center gap-2.5 rounded-xl bg-inset px-2.5 py-2">
+        <div className="flex items-center gap-2.5 rounded-md px-2.5 py-2">
           <Avatar name={props.user} />
-          <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{props.user}</span>
+          <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{props.user}</div><div className="text-xs text-faint">{props.isAdmin ? t.roleAdmin : t.roleUser}</div></div>
           <IconBtn
             size="sm"
             className="hover:text-danger-ink"
@@ -137,23 +152,24 @@ export default function AppSidebar(props: Props) {
   return (
     <>
       {/* Desktop column */}
-      <aside className="hidden w-[248px] shrink-0 border-r border-line bg-panel min-[761px]:block">
+      <aside className="hidden app-sidebar w-[228px] shrink-0 bg-bg min-[1100px]:block">
         {content}
       </aside>
 
       {/* Mobile drawer */}
       <div
-        className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] transition-opacity min-[761px]:hidden ${
+        className={`fixed inset-0 z-50 bg-black/40 transition-opacity min-[1100px]:hidden ${
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={onClose}
       />
       <aside
+        ref={drawerRef}
         role="dialog"
         aria-modal="true"
         aria-label={t.menu}
         aria-hidden={!open}
-        className={`fixed inset-y-0 left-0 z-[60] w-[min(292px,82vw)] border-r border-line bg-panel pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] elev-3 transition-transform duration-200 min-[761px]:hidden ${
+        className={`fixed inset-y-0 left-0 z-[60] w-[min(292px,82vw)] app-sidebar border-r border-line bg-bg pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] elev-3 transition-transform duration-200 min-[1100px]:hidden ${
           open ? "translate-x-0" : "invisible -translate-x-[105%]"
         }`}
       >

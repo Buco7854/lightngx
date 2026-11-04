@@ -147,20 +147,20 @@ export default function Navbar({
   );
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center gap-2 border-b border-line bg-panel px-3 min-[761px]:px-5">
-      <IconBtn className="min-[761px]:hidden" onClick={onMenu} aria-label={t.menu}>
+    <header className="app-navbar flex h-[56px] shrink-0 items-center gap-2 bg-bg px-4 min-[1100px]:px-8">
+      <IconBtn className="min-[1100px]:hidden" onClick={onMenu} aria-label={t.menu}>
         <MenuIcon size={20} />
       </IconBtn>
       <Link
         href={`/${home}`}
-        className="flex shrink-0 cursor-pointer items-center gap-2 min-[761px]:hidden"
+        className="flex shrink-0 cursor-pointer items-center gap-2 min-[1100px]:hidden"
         aria-label={t.appName}
       >
         <Logo className="h-6 w-6" />
       </Link>
 
-      <PageTitle className="min-w-0 flex-1 max-[760px]:hidden">{title}</PageTitle>
-      <span className="flex-1 min-[761px]:hidden" />
+      <div className="min-w-0 flex-1 flex items-center gap-2 text-dim"><span className="max-[1099px]:hidden">nginx</span><span className="max-[1099px]:hidden text-faint">/</span><PageTitle className="min-w-0">{title}</PageTitle></div>
+
 
       {/* nginx status + actions */}
       <Dropdown
@@ -177,7 +177,7 @@ export default function Navbar({
               {unknown ? t.statusUnknown : running ? t.running : t.stopped}
             </span>
             {status?.version && (
-              <span className="font-mono text-[12px] text-faint max-[900px]:hidden">
+              <span className="font-mono text-[12px] text-faint max-[1200px]:hidden">
                 {status.version}
               </span>
             )}

@@ -75,7 +75,9 @@ export function TagFilters({
   tags,
   error,
   onChanged,
+  panel = false,
 }: {
+  panel?: boolean;
   tags: Tag[];
   error: string;
   onChanged: () => void;
@@ -85,43 +87,49 @@ export function TagFilters({
   const [manage, setManage] = useState(false);
   const selected = tags.filter((tag) => filter.value(tag.id) !== "any");
   return (
-    <div className="shrink-0 border-b border-line bg-panel px-3 py-2.5 min-[761px]:px-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 inline-flex items-center gap-1.5 text-[12px] font-medium text-dim">
+    <div className={`tag-filters ${panel ? "tag-filters-panel" : ""} shrink-0 border-b border-line bg-panel px-3 py-2.5 min-[761px]:px-5`}>
+      <div className="tag-filter-controls flex flex-wrap items-center gap-2">
+        <span className="tag-filter-legend mr-1 inline-flex items-center gap-1.5 text-[12px] font-medium text-dim">
           <TagIcon size={14} />
           {t.tags}
         </span>
-        <Combobox
-          value=""
-          onChange={(id) => filter.set(Number(id), "include")}
-          options={tags
-            .filter((tag) => filter.value(tag.id) !== "include")
-            .map((tag) => ({ value: String(tag.id), label: tag.name }))}
-          placeholder={t.tagInclude}
-          ariaLabel={t.tagIncludePicker}
-          search
-          emptyLabel={t.noMatches}
-          className="w-[140px]"
-          disabled={!tags.length}
-        />
-        <Combobox
-          value=""
-          onChange={(id) => filter.set(Number(id), "exclude")}
-          options={tags
-            .filter((tag) => filter.value(tag.id) !== "exclude")
-            .map((tag) => ({ value: String(tag.id), label: tag.name }))}
-          placeholder={t.tagExclude}
-          ariaLabel={t.tagExcludePicker}
-          search
-          emptyLabel={t.noMatches}
-          className="w-[140px]"
-          disabled={!tags.length}
-        />
+        <div className="tag-filter-field">
+          {panel && <span className="tag-filter-field-label">{t.tagIncludePicker}</span>}
+          <Combobox
+            value=""
+            onChange={(id) => filter.set(Number(id), "include")}
+            options={tags
+              .filter((tag) => filter.value(tag.id) !== "include")
+              .map((tag) => ({ value: String(tag.id), label: tag.name }))}
+            placeholder={t.tagInclude}
+            ariaLabel={t.tagIncludePicker}
+            search
+            emptyLabel={t.noMatches}
+            className="w-[140px]"
+            disabled={!tags.length}
+          />
+        </div>
+        <div className="tag-filter-field">
+          {panel && <span className="tag-filter-field-label">{t.tagExcludePicker}</span>}
+          <Combobox
+            value=""
+            onChange={(id) => filter.set(Number(id), "exclude")}
+            options={tags
+              .filter((tag) => filter.value(tag.id) !== "exclude")
+              .map((tag) => ({ value: String(tag.id), label: tag.name }))}
+            placeholder={t.tagExclude}
+            ariaLabel={t.tagExcludePicker}
+            search
+            emptyLabel={t.noMatches}
+            className="w-[140px]"
+            disabled={!tags.length}
+          />
+        </div>
         <Btn
           type="button"
           size="sm"
           variant="ghost"
-          className="ml-auto"
+          className="tag-filter-manage ml-auto"
           onClick={() => setManage(true)}
         >
           <PencilIcon size={13} />
@@ -143,10 +151,10 @@ export function TagFilters({
               <XIcon size={12} />
             </button>
           ))}
-          <Btn type="button" size="sm" variant="ghost" onClick={filter.clear}>
+          <Btn type="button" size="sm" variant="ghost" className="tag-filter-clear" onClick={filter.clear}>
             {t.tagClear}
           </Btn>
-          <span className="w-full pt-1 text-[11.5px] text-dim">{t.tagFilterHint}</span>
+          <span className="w-full pt-1 text-[11.5px] text-dim">{panel ? t.tagFilterPanelHint : t.tagFilterHint}</span>
         </div>
       )}
       {error && (

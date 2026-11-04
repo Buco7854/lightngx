@@ -38,8 +38,8 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
     api
       .logs()
       .then((r) => {
-        setFiles(r.files);
-        if (r.files.length > 0 && !selected) {
+        setFiles(r.files ?? []);
+        if (r.files?.length > 0 && !selected) {
           const preferred =
             r.files.find((f) => f.path.endsWith("/access.log")) ?? r.files[0];
           setQuery({ file: preferred.path }, { replace: true });
@@ -171,6 +171,7 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="workspace-heading"><div><h1>{t.tabLogs}</h1><p>{t.logsIntro}</p></div></div>
       <Toolbar>
         <Combobox
           value={selected}
@@ -212,7 +213,7 @@ export default function LogsView({ onAuthLost }: { onAuthLost: () => void }) {
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {!atEnd && loaded && (
-          <div className="sticky top-0 z-10 flex justify-center bg-gradient-to-b from-inset via-inset to-transparent py-2.5 font-sans">
+          <div className="sticky top-0 z-10 flex justify-center bg-inset py-2.5 font-sans">
             <Btn size="sm" onClick={loadOlder}>
               {t.loadOlder}
             </Btn>

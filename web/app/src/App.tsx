@@ -40,6 +40,7 @@ export default function App() {
   const loc = useLocation();
 
   useEffect(() => applyThemePref(themePref), [themePref]);
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   useEffect(() => watchSystemTheme(() => themePref), [themePref]);
 
   const setLang = useCallback((l: Lang) => {
@@ -204,6 +205,7 @@ function Shell({
   const toast = useToast();
   const setView = useCallback((v: View) => navigate(`/${v}`), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const { status, refresh: refreshStatus } = useNginxStatus();
   const defaultReload = appConfig?.defaultReloadOnSave ?? true;
   // Optimistic until the config lands, so the sections do not flicker.
@@ -245,7 +247,8 @@ function Shell({
   };
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="app-shell flex min-h-0 flex-1">
+      <a href="#main-content" className="skip-link">{t.skipToContent}</a>
       {needsPolicy && <PolicyPrompt onDone={reloadMe} />}
       <AppSidebar
         view={notFound ? null : view}
@@ -257,9 +260,9 @@ function Shell({
         showSites={showSites}
         showStreams={showStreams}
         open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        onClose={closeSidebar}
       />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div inert={sidebarOpen || undefined} className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Navbar
           title={notFound || view === null ? t.notFoundTitle : titles[view]}
           home={home}
@@ -269,7 +272,7 @@ function Shell({
           setThemePref={setThemePref}
           onMenu={() => setSidebarOpen(true)}
         />
-        <main className="flex min-h-0 min-w-0 flex-1">
+        <main id="main-content" tabIndex={-1} className="work-sheet flex min-h-0 min-w-0 flex-1">
           {notFound ? (
             <NotFound home={home} />
           ) : (

@@ -123,7 +123,7 @@ export default function ApiKeys({ onAuthLost }: { onAuthLost: () => void }) {
       </div>
 
       {created && (
-        <div className="flex flex-col gap-2.5 rounded-xl border border-accent/40 bg-accent-soft p-4">
+        <div className="flex flex-col gap-2.5 rounded-lg border border-accent/40 bg-accent-soft p-4">
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-panel text-accent-ink">
               <KeyIcon size={15} />
@@ -195,7 +195,7 @@ export default function ApiKeys({ onAuthLost }: { onAuthLost: () => void }) {
       )}
 
       {keys.length === 0 && !adding ? (
-        <p className="m-0 rounded-xl border border-dashed border-line px-4 py-6 text-center text-[13px] text-dim">
+        <p className="m-0 rounded-lg border border-dashed border-line px-4 py-6 text-center text-[13px] text-dim">
           {t.noApiKeys}
         </p>
       ) : (
@@ -203,9 +203,9 @@ export default function ApiKeys({ onAuthLost }: { onAuthLost: () => void }) {
           {keys.map((k) => (
             <li
               key={k.id}
-              className="flex flex-wrap items-start gap-x-3 gap-y-2.5 rounded-xl border border-line bg-inset px-3 py-3"
+              className="flex flex-wrap items-start gap-x-3 gap-y-2.5 rounded-lg border border-line bg-inset px-3 py-3"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ctrl text-dim">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ctrl text-dim">
                 <KeyIcon size={17} />
               </span>
               <div className="flex min-w-[140px] flex-1 flex-col gap-1.5">

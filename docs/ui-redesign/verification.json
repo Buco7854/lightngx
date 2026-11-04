@@ -1,0 +1,546 @@
+{
+  "review": [
+    {
+      "name": "sites",
+      "w": 1440,
+      "overflow": false,
+      "headings": [
+        "Sites"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "sites",
+      "w": 768,
+      "overflow": false,
+      "headings": [
+        "Sites"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "sites",
+      "w": 390,
+      "overflow": false,
+      "headings": [
+        "Sites"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "sites",
+      "axe": []
+    },
+    {
+      "name": "streams",
+      "w": 1440,
+      "overflow": false,
+      "headings": [
+        "Streams"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "streams",
+      "w": 768,
+      "overflow": false,
+      "headings": [
+        "Streams"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "streams",
+      "w": 390,
+      "overflow": false,
+      "headings": [
+        "Streams"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "streams",
+      "axe": []
+    },
+    {
+      "name": "config",
+      "w": 1440,
+      "overflow": false,
+      "headings": [
+        "Configuration"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "config",
+      "w": 768,
+      "overflow": false,
+      "headings": [
+        "Configuration"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "config",
+      "w": 390,
+      "overflow": false,
+      "headings": [
+        "Configuration"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "config",
+      "axe": []
+    },
+    {
+      "name": "editor",
+      "w": 1440,
+      "overflow": false,
+      "headings": [
+        "blog"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "editor",
+      "w": 768,
+      "overflow": false,
+      "headings": [
+        "blog"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "editor",
+      "w": 390,
+      "overflow": false,
+      "headings": [
+        "blog"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "editor",
+      "axe": []
+    },
+    {
+      "name": "logs",
+      "w": 1440,
+      "overflow": false,
+      "headings": [
+        "Logs"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "logs",
+      "w": 768,
+      "overflow": false,
+      "headings": [
+        "Logs"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "logs",
+      "w": 390,
+      "overflow": false,
+      "headings": [
+        "Logs"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "logs",
+      "axe": []
+    },
+    {
+      "name": "profile",
+      "w": 1440,
+      "overflow": false,
+      "headings": [
+        "Profile"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "profile",
+      "w": 768,
+      "overflow": false,
+      "headings": [
+        "Profile"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "profile",
+      "w": 390,
+      "overflow": false,
+      "headings": [
+        "Profile"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "profile",
+      "axe": []
+    },
+    {
+      "name": "admin",
+      "w": 1440,
+      "overflow": false,
+      "headings": [
+        "Administration"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "admin",
+      "w": 768,
+      "overflow": false,
+      "headings": [
+        "Administration"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "admin",
+      "w": 390,
+      "overflow": false,
+      "headings": [
+        "Administration"
+      ],
+      "font": "\"IBM Plex Sans\", system-ui, sans-serif"
+    },
+    {
+      "name": "admin",
+      "axe": []
+    }
+  ],
+  "extras": [
+    {
+      "theme": "light",
+      "name": "sites",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "name": "config",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "name": "editor",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "name": "logs",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "name": "profile",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "light",
+      "name": "admin",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "name": "sites",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "name": "config",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "name": "editor",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "name": "logs",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "name": "profile",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "theme": "dark",
+      "name": "admin",
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "name": "login",
+      "w": 1440,
+      "violations": []
+    },
+    {
+      "name": "login",
+      "w": 768,
+      "violations": []
+    },
+    {
+      "name": "login",
+      "w": 390,
+      "violations": []
+    },
+    {
+      "name": "login",
+      "w": 320,
+      "violations": []
+    }
+  ],
+  "states": [
+    {
+      "state": "setup",
+      "w": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "setup",
+      "w": 768,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "setup",
+      "w": 320,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "verify",
+      "w": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "verify",
+      "w": 768,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "verify",
+      "w": 320,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "enroll",
+      "w": 1440,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "enroll",
+      "w": 768,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "enroll",
+      "w": 320,
+      "overflow": false,
+      "violations": []
+    },
+    {
+      "state": "null-log-list",
+      "rendered": true
+    },
+    {
+      "state": "empty-search",
+      "rendered": true
+    }
+  ],
+  "functional-results": {
+    "checks": [
+      "Search and URL persistence",
+      "Status filters",
+      "Bulk selection",
+      "Create site, edit and guarded save",
+      "Enable with confirmation",
+      "Clone site",
+      "Delete with confirmation",
+      "Tag management",
+      "Configuration tree and editor",
+      "Log history, pause and filter",
+      "Administration dialog",
+      "Mobile filters, drawer focus and Escape",
+      "Theme and language switching"
+    ],
+    "errors": []
+  },
+  "technical-verification": {
+    "themeSelectionFocus": true,
+    "en320": {
+      "right": 304,
+      "actions": [
+        {
+          "name": "Maintenance blog",
+          "left": 92,
+          "right": 138
+        },
+        {
+          "name": "Disable blog",
+          "left": 205,
+          "right": 251
+        },
+        {
+          "name": "More actions blog",
+          "left": 268,
+          "right": 304
+        }
+      ]
+    },
+    "fr320": {
+      "right": 304,
+      "actions": [
+        {
+          "name": "Maintenance blog",
+          "left": 92,
+          "right": 138
+        },
+        {
+          "name": "D\u00e9sactiver blog",
+          "left": 200,
+          "right": 246
+        },
+        {
+          "name": "Plus d'actions blog",
+          "left": 268,
+          "right": 304
+        }
+      ]
+    }
+  },
+  "production": {
+    "productionEmbeddedBuild": true,
+    "siteRows": 4,
+    "localFontLoaded": true,
+    "failures": []
+  },
+  "metrics": [
+    {
+      "version": "before",
+      "width": 1440,
+      "visibleH1": 1,
+      "titleSize": "17px",
+      "sidebarWidth": 248,
+      "firstRowTop": 264,
+      "pageOverflow": false
+    },
+    {
+      "version": "before",
+      "width": 768,
+      "visibleH1": 1,
+      "titleSize": "17px",
+      "sidebarWidth": 248,
+      "firstRowTop": 312,
+      "pageOverflow": false
+    },
+    {
+      "version": "before",
+      "width": 390,
+      "visibleH1": 0,
+      "titleSize": null,
+      "sidebarWidth": 0,
+      "firstRowTop": 344,
+      "pageOverflow": false
+    },
+    {
+      "version": "after",
+      "width": 1440,
+      "visibleH1": 1,
+      "titleSize": "26px",
+      "sidebarWidth": 228,
+      "firstRowTop": 478,
+      "pageOverflow": false
+    },
+    {
+      "version": "after",
+      "width": 768,
+      "visibleH1": 1,
+      "titleSize": "26px",
+      "sidebarWidth": 0,
+      "firstRowTop": 474,
+      "pageOverflow": false
+    },
+    {
+      "version": "after",
+      "width": 390,
+      "visibleH1": 1,
+      "titleSize": "24px",
+      "sidebarWidth": 0,
+      "firstRowTop": 412,
+      "pageOverflow": false
+    }
+  ],
+  "impeccable-detector": [],
+  "documentationCapture": {
+    "screenshots": 18,
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "desktop": [
+      1440,
+      1000
+    ],
+    "mobile": [
+      390,
+      844
+    ],
+    "errors": []
+  },
+  "documentationBrowser": {
+    "checks": [
+      {
+        "route": "overview",
+        "w": 1440
+      },
+      {
+        "route": "overview",
+        "w": 768
+      },
+      {
+        "route": "overview",
+        "w": 390
+      },
+      {
+        "route": "screenshots",
+        "theme": "light",
+        "images": 9
+      },
+      {
+        "route": "screenshots",
+        "theme": "dark",
+        "images": 9
+      }
+    ],
+    "errors": []
+  }
+}

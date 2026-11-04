@@ -66,10 +66,10 @@ export default function TOTPPanel({
           alt="TOTP QR"
           width={200}
           height={200}
-          className="mx-auto rounded-xl border border-line bg-white p-2.5 elev-1"
+          className="mx-auto rounded-lg border border-line bg-white p-2.5 elev-1"
         />
       )}
-      <div className="rounded-xl border border-line bg-inset px-3 py-2.5 text-center text-[12.5px] text-dim">
+      <div className="rounded-lg border border-line bg-inset px-3 py-2.5 text-center text-[12.5px] text-dim">
         {t.totpManual}
         <div className="mt-1 font-mono text-[13px] break-all text-fg select-all">{secret}</div>
       </div>

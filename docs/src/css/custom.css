@@ -1,23 +1,35 @@
-/**
- * Theme tuned to match the Lightngx app: the same green accent
- * (#009639 in light, #26b356 in dark) and a soft, rounded surface.
- */
+/** Documentation shares the application's type, green accent and neutral surfaces. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../../static/fonts/ibm-plex-sans-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("../../static/fonts/ibm-plex-sans-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
 
 :root {
-  --ifm-color-primary: #009639;
-  --ifm-color-primary-dark: #00872f;
-  --ifm-color-primary-darker: #007f2c;
-  --ifm-color-primary-darkest: #006924;
-  --ifm-color-primary-light: #00a53f;
-  --ifm-color-primary-lighter: #00ad42;
-  --ifm-color-primary-lightest: #00c74d;
+  --ifm-color-primary: #23764d;
+  --ifm-color-primary-dark: #1f6a45;
+  --ifm-color-primary-darker: #1d6441;
+  --ifm-color-primary-darkest: #185237;
+  --ifm-color-primary-light: #278255;
+  --ifm-color-primary-lighter: #2b8c5c;
+  --ifm-color-primary-lightest: #329f69;
 
   --ifm-code-font-size: 92%;
-  --ifm-font-family-base: system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
-  --ifm-heading-font-weight: 650;
+  --ifm-font-family-base: "IBM Plex Sans", system-ui, sans-serif;
+  --ifm-heading-font-weight: 600;
   --ifm-navbar-shadow: 0 1px 0 var(--ifm-color-emphasis-200);
-  --ifm-global-radius: 0.6rem;
+  --ifm-global-radius: 0.5rem;
 
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
 }
@@ -25,16 +37,16 @@
 /* Infima sets its dark defaults on html[data-theme="dark"], so the
    overrides need the same specificity or the backgrounds stay gray. */
 html[data-theme="dark"] {
-  --ifm-color-primary: #26b356;
-  --ifm-color-primary-dark: #22a14d;
-  --ifm-color-primary-darker: #209849;
-  --ifm-color-primary-darkest: #1a7d3c;
-  --ifm-color-primary-light: #3dbb68;
-  --ifm-color-primary-lighter: #49c072;
-  --ifm-color-primary-lightest: #6bcd8d;
+  --ifm-color-primary: #45cc76;
+  --ifm-color-primary-dark: #33c46a;
+  --ifm-color-primary-darker: #2fba63;
+  --ifm-color-primary-darkest: #249850;
+  --ifm-color-primary-light: #58d186;
+  --ifm-color-primary-lighter: #63d58e;
+  --ifm-color-primary-lightest: #80dda4;
 
-  --ifm-background-color: #0d1512;
-  --ifm-background-surface-color: #121b16;
+  --ifm-background-color: #0d0d0d;
+  --ifm-background-surface-color: #171717;
 
   --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.08);
 }
@@ -43,7 +55,7 @@ html[data-theme="dark"] {
 .markdown img {
   border-radius: var(--ifm-global-radius);
   border: 1px solid var(--ifm-color-emphasis-200);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 /* The overview banner draws its own rounded panel, so it takes no frame. */

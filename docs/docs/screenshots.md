@@ -18,6 +18,7 @@ export const Shot = ({ name, alt }) => (
 # Screenshots
 
 A tour of the interface. Every shot follows your light or dark preference.
+The examples use a local demonstration server with reserved example domains.
 
 ## Configuration editor
 
@@ -60,3 +61,10 @@ one.
 ## Mobile
 
 <Shot name="screenshot-mobile" alt="The sites list on a phone" />
+
+## Mobile filters
+
+Status and tag filters share a sheet with aligned fields, a reset action, and
+a results button. The list keeps its place while you adjust filters.
+
+<Shot name="screenshot-filters" alt="The mobile filter sheet with status and tag fields" />

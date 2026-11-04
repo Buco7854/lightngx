@@ -1,0 +1,1203 @@
+{
+  "layout": [
+    {
+      "name": "sites",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 320,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 375,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 390,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 430,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 768,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 768,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 768,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 768,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 768,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 768,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 768,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 1024,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 1024,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 1024,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 1024,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 1024,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 1024,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 1024,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 1440,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 1440,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 1440,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 1440,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 1440,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 1440,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 1440,
+      "lang": "en",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "lang": "en",
+      "theme": "light",
+      "errors": []
+    },
+    {
+      "lang": "en",
+      "theme": "light",
+      "path": "/profile",
+      "axe": []
+    },
+    {
+      "lang": "en",
+      "theme": "light",
+      "path": "/sites",
+      "axe": []
+    },
+    {
+      "lang": "en",
+      "theme": "light",
+      "path": "/admin",
+      "axe": []
+    },
+    {
+      "name": "sites",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 320,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 390,
+      "lang": "en",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "errors": []
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "path": "/profile",
+      "axe": []
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "path": "/sites",
+      "axe": []
+    },
+    {
+      "lang": "en",
+      "theme": "dark",
+      "path": "/admin",
+      "axe": []
+    },
+    {
+      "name": "sites",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 320,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 390,
+      "lang": "fr",
+      "theme": "light",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "lang": "fr",
+      "theme": "light",
+      "errors": []
+    },
+    {
+      "lang": "fr",
+      "theme": "light",
+      "path": "/profile",
+      "axe": []
+    },
+    {
+      "lang": "fr",
+      "theme": "light",
+      "path": "/sites",
+      "axe": []
+    },
+    {
+      "lang": "fr",
+      "theme": "light",
+      "path": "/admin",
+      "axe": []
+    },
+    {
+      "name": "sites",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 320,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "sites-filters",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "streams-filters",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "config-filters",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "editor",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "logs",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "profile",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "name": "admin",
+      "w": 390,
+      "lang": "fr",
+      "theme": "dark",
+      "overflow": [],
+      "documentOverflow": false
+    },
+    {
+      "lang": "fr",
+      "theme": "dark",
+      "errors": []
+    },
+    {
+      "lang": "fr",
+      "theme": "dark",
+      "path": "/profile",
+      "axe": []
+    },
+    {
+      "lang": "fr",
+      "theme": "dark",
+      "path": "/sites",
+      "axe": []
+    },
+    {
+      "lang": "fr",
+      "theme": "dark",
+      "path": "/admin",
+      "axe": []
+    }
+  ],
+  "interactions": [
+    "Status filtering and reset",
+    "Tag filtering and reset",
+    "Nested tag management and keyboard focus",
+    {
+      "sheetAxe": []
+    },
+    "Close restores trigger focus",
+    "Configuration shares tag-only sheet"
+  ],
+  "tagSearch": {
+    "status": "pass",
+    "responsiveScore": 4,
+    "scopeScore": 18,
+    "total": 20,
+    "results": [
+      {
+        "theme": "light",
+        "pass": true,
+        "metrics": {
+          "value": "Production",
+          "placeholder": "Rechercher une \u00e9tiquette\u2026",
+          "width": 246,
+          "paddingLeft": "36px",
+          "paddingRight": "36px",
+          "textAreaWidth": 172,
+          "parentWidth": 246,
+          "parentScroll": 246
+        },
+        "layout": {
+          "documentWidth": 320,
+          "viewport": 320,
+          "theme": "light",
+          "dialogCount": 3,
+          "dialogNames": [
+            "Menu",
+            "Filtres",
+            "G\u00e9rer les \u00e9tiquettes"
+          ],
+          "search": {
+            "color": "rgb(27, 41, 34)",
+            "background": "rgb(255, 255, 255)",
+            "x": 37,
+            "y": 230,
+            "w": 246,
+            "h": 44
+          },
+          "newTag": {
+            "color": "rgb(27, 41, 34)",
+            "background": "rgb(255, 255, 255)",
+            "x": 37,
+            "y": 286,
+            "w": 246,
+            "h": 44
+          },
+          "dialog": {
+            "color": "rgb(27, 41, 34)",
+            "background": "rgb(255, 255, 255)",
+            "x": 16,
+            "y": 153,
+            "w": 288,
+            "h": 434
+          },
+          "sheet": {
+            "color": "rgb(27, 41, 34)",
+            "background": "rgb(255, 255, 255)",
+            "x": 0,
+            "y": 56,
+            "w": 320,
+            "h": 684
+          },
+          "filteredText": "G\u00e9rer les \u00e9tiquettesG\u00e9rer les \u00e9tiquettesNouvelle \u00e9tiquetteOrganisez vos \u00e9tiquettes et les r\u00e8gles qui les appliquent automatiquement.ManuelleProductionManuelle2 \u00e9l\u00e9ment(s)Termin\u00e9",
+          "overflow": []
+        },
+        "errors": []
+      },
+      {
+        "theme": "dark",
+        "pass": true,
+        "metrics": {
+          "value": "Production",
+          "placeholder": "Rechercher une \u00e9tiquette\u2026",
+          "width": 246,
+          "paddingLeft": "36px",
+          "paddingRight": "36px",
+          "textAreaWidth": 172,
+          "parentWidth": 246,
+          "parentScroll": 246
+        },
+        "layout": {
+          "documentWidth": 320,
+          "viewport": 320,
+          "theme": "dark",
+          "dialogCount": 3,
+          "dialogNames": [
+            "Menu",
+            "Filtres",
+            "G\u00e9rer les \u00e9tiquettes"
+          ],
+          "search": {
+            "color": "rgb(237, 237, 237)",
+            "background": "rgb(23, 23, 23)",
+            "x": 37,
+            "y": 230,
+            "w": 246,
+            "h": 44
+          },
+          "newTag": {
+            "color": "rgb(237, 237, 237)",
+            "background": "rgb(23, 23, 23)",
+            "x": 37,
+            "y": 286,
+            "w": 246,
+            "h": 44
+          },
+          "dialog": {
+            "color": "rgb(237, 237, 237)",
+            "background": "rgb(32, 32, 32)",
+            "x": 16,
+            "y": 153,
+            "w": 288,
+            "h": 434
+          },
+          "sheet": {
+            "color": "rgb(237, 237, 237)",
+            "background": "rgb(23, 23, 23)",
+            "x": 0,
+            "y": 56,
+            "w": 320,
+            "h": 684
+          },
+          "filteredText": "G\u00e9rer les \u00e9tiquettesG\u00e9rer les \u00e9tiquettesNouvelle \u00e9tiquetteOrganisez vos \u00e9tiquettes et les r\u00e8gles qui les appliquent automatiquement.ManuelleProductionManuelle2 \u00e9l\u00e9ment(s)Termin\u00e9",
+          "overflow": []
+        },
+        "errors": []
+      }
+    ]
+  },
+  "detector": []
+}

@@ -1,21 +1,19 @@
-import type { ReactNode } from "react";
-import { CodeIcon } from "../icons";
+import { useId, useState, type ReactNode } from "react";
+import { CodeIcon, ChevronDownIcon } from "../icons";
 import { useI18n } from "../i18n";
 import { Kbd, Switch } from "../ui";
 
 
 export function EditorRail({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
   return (
-    <div
-      className={
-        "flex shrink-0 border-line bg-panel " +
-        "max-[899px]:flex-row max-[899px]:flex-wrap max-[899px]:items-center max-[899px]:gap-2 " +
-        "max-[899px]:border-b max-[899px]:px-3 max-[899px]:py-2.5 " +
-        "min-[900px]:w-[216px] min-[900px]:flex-col min-[900px]:gap-5 min-[900px]:overflow-y-auto " +
-        "min-[900px]:border-l min-[900px]:p-4"
-      }
-    >
-      {children}
+    <div className={`editor-rail ${expanded ? "expanded" : ""}`}>
+      <button className="editor-rail-trigger" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}>
+        <span>{t.editorOptions}</span><ChevronDownIcon size={15} />
+      </button>
+      <div id={id} className="editor-rail-content">{children}</div>
     </div>
   );
 }
@@ -24,7 +22,7 @@ export function RailSection({ label, children }: { label?: string; children: Rea
   return (
     <div className="flex min-w-0 gap-2 max-[899px]:flex-wrap max-[899px]:items-center min-[900px]:flex-col min-[900px]:gap-2">
       {label && (
-        <span className="text-[11px] font-semibold tracking-wider text-faint uppercase max-[899px]:hidden">
+        <span className="text-xs font-medium text-dim max-[899px]:hidden">
           {label}
         </span>
       )}
@@ -47,7 +45,7 @@ export function RailToggle({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-inset px-3 py-2 max-[899px]:py-1.5">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-line bg-panel px-3 py-2 max-[899px]:py-1.5">
       <span className="text-[13px] font-medium">{label}</span>
       <Switch checked={checked} warn={warn} label={ariaLabel} onToggle={onToggle} />
     </div>
