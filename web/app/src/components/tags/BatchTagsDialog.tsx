@@ -204,6 +204,7 @@ export default function BatchTagsDialog({
             files={data.files}
             changes={changes}
             disabled={busy}
+            onAdd={(id) => update(id, true)}
             onToggle={(id) => {
               const tag = data.tags.find((tag) => tag.id === id)!;
               update(id, !(changes.get(id) ?? tag.count === data.files));

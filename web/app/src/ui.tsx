@@ -872,7 +872,7 @@ export function Combobox({
   const focusTarget = useRef<"selected" | "first" | "last">("selected");
   const focusOption = (which: "selected" | "first" | "last") => {
     const buttons = menu.menuRef.current?.querySelectorAll<HTMLButtonElement>(
-      '[role="option"]:not(:disabled)',
+      'button[role="option"]:not(:disabled)',
     );
     if (!buttons?.length) return;
     const index =
@@ -973,7 +973,7 @@ export function Combobox({
                 e.preventDefault();
                 const buttons = Array.from(
                   e.currentTarget.querySelectorAll<HTMLButtonElement>(
-                    '[role="option"]:not(:disabled)',
+                    'button[role="option"]:not(:disabled)',
                   ),
                 );
                 const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
@@ -988,7 +988,15 @@ export function Combobox({
               }}
             >
               {filtered.length === 0 ? (
-                <div className="px-3 py-2.5 text-[13px] text-dim">{emptyLabel}</div>
+                <div
+                  role="option"
+                  aria-disabled="true"
+                  aria-selected="false"
+                  aria-live="polite"
+                  className="px-3 py-2.5 text-[13px] text-dim"
+                >
+                  {emptyLabel}
+                </div>
               ) : (
                 filtered.map((o) => (
                   <button

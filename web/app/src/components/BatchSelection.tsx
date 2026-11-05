@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "../i18n";
 import { MoreIcon, TagIcon, XIcon } from "../icons";
 import { BATCH_LIMIT } from "../useBatchSelection";
-import { Btn, Dropdown, IconBtn, MenuItem, MenuSep } from "../ui";
+import { Btn, Dropdown, IconBtn, MenuItem } from "../ui";
 
 export default function BatchSelection({
   count,
@@ -54,12 +54,7 @@ export default function BatchSelection({
                 <TagIcon size={15} />
                 {t.tags}
               </MenuItem>
-              {children && (
-                <>
-                  <MenuSep />
-                  {children(close)}
-                </>
-              )}
+              {children?.(close)}
             </>
           )}
         </Dropdown>

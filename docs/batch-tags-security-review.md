@@ -1,7 +1,9 @@
 # Tag picker and internet-facing security review
 
 The existing Lightngx workspace and shared controls are retained. File and batch
-assignment share one searchable multi-select and removable label chips. Batch
+assignment share searchable multi-select controls and removable label chips. Batch
+assignment has explicit **Add tags** and **Remove tags** pickers, including labels
+present on only some selected files. Batch
 edits stage additions and removals together, preview their effects, support
 individual undo, and save in one transaction. Creation reuses the existing tag
 form; a new batch label is assigned only after Apply changes. The shared modal
@@ -68,6 +70,13 @@ and fonts. Overlay shadows/covered background text are appropriate to a modal;
 example domains belong to temporary fixtures. Small metadata text follows the
 existing workspace scale. No new visual direction or sample product data was
 introduced.
+
+The bulk action follow-up keeps both maintenance actions visible and disables
+actions without eligible sites. Enable/disable and maintenance on/off target only
+rows that need that change; disabled sites remain disabled during maintenance
+operations. Browser checks cover each homogeneous state and mixed selections,
+the exact submitted names, and resulting persisted state. Nginx configuration
+validation and reload signals use controlled test stubs in this browser fixture.
 
 This is an implementation review with regression tests, not an independent
 penetration test. Real identity-provider integration, physical authenticators,

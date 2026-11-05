@@ -173,7 +173,7 @@ export default function VhostsView({
         const c: Record<SiteAction, ConfirmOptions | null> = {
           enable: { title: t.enableSite, message: t.confirmEnableVhosts(n) },
           disable: { title: t.disableSite, message: t.confirmDisableVhosts(n), danger: true },
-          maintenance_on: { title: t.maintenanceOn, message: t.confirmMaintenanceVhosts(n) },
+          maintenance_on: { title: t.maintenanceStart, message: t.confirmMaintenanceVhosts(n) },
           maintenance_off: { title: t.maintenanceOff, message: t.confirmMaintenanceOffVhosts(n) },
           delete: { title: t.deleteAction, message: t.confirmDeleteVhosts(n), danger: true },
         };
@@ -271,8 +271,10 @@ export default function VhostsView({
 
   const sel = [...selected];
   const selSites = sites.filter((s) => selected.has(s.name));
-  const anyEnabled = selSites.some((s) => s.enabled && !s.maintenance);
-  const anyMaint = selSites.some((s) => s.maintenance);
+  const enableSites = selSites.filter((s) => !s.enabled).map((s) => s.name);
+  const disableSites = selSites.filter((s) => s.enabled).map((s) => s.name);
+  const startMaintenance = selSites.filter((s) => s.enabled && !s.maintenance).map((s) => s.name);
+  const endMaintenance = selSites.filter((s) => s.maintenance).map((s) => s.name);
   const anyBusy = busy !== "";
   const KindIcon = kind === "sites" ? GlobeIcon : StreamIcon;
   const newLabel = kind === "sites" ? t.newSite : t.newStream;
@@ -321,10 +323,12 @@ export default function VhostsView({
         busy={anyBusy} onClear={selection.clear} onSelectMatching={selection.selectMatching}
         onTags={() => setTagPaths(selSites.map(site => site.path ?? `${kind}-available/${site.name}`))}>
         {close => <>
-            <MenuItem onClick={() => { close(); void runAction(sel, "enable"); }}>{t.enableSite}</MenuItem>
-            <MenuItem onClick={() => { close(); void runAction(sel, "disable"); }}>{t.disableSite}</MenuItem>
-            {maintenanceOK && anyEnabled && <MenuItem onClick={() => { close(); void runAction(sel, "maintenance_on"); }}>{t.maintenanceOn}</MenuItem>}
-            {maintenanceOK && anyMaint && <MenuItem onClick={() => { close(); void runAction(sel, "maintenance_off"); }}>{t.maintenanceOff}</MenuItem>}
+            <MenuItem disabled={!enableSites.length} onClick={() => { close(); void runAction(enableSites, "enable"); }}>{t.enableSite}</MenuItem>
+            <MenuItem disabled={!disableSites.length} onClick={() => { close(); void runAction(disableSites, "disable"); }}>{t.disableSite}</MenuItem>
+            {maintenanceOK && <>
+              <MenuItem disabled={!startMaintenance.length} onClick={() => { close(); void runAction(startMaintenance, "maintenance_on"); }}>{t.maintenanceStart}</MenuItem>
+              <MenuItem disabled={!endMaintenance.length} onClick={() => { close(); void runAction(endMaintenance, "maintenance_off"); }}>{t.maintenanceOff}</MenuItem>
+            </>}
             <MenuItem danger onClick={() => { close(); void runAction(sel, "delete"); }}><TrashIcon size={15} />{t.deleteAction}</MenuItem>
         </>}
       </BatchSelection>

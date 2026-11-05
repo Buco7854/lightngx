@@ -11,6 +11,7 @@ export default function TagPicker({
   changes,
   disabled,
   onToggle,
+  onAdd,
   onRemove,
   onReset,
   onCreate,
@@ -21,6 +22,7 @@ export default function TagPicker({
   changes?: Map<number, boolean>;
   disabled?: boolean;
   onToggle: (id: number) => void;
+  onAdd?: (id: number) => void;
   onRemove: (id: number) => void;
   onReset?: (id: number) => void;
   onCreate: () => void;
@@ -30,8 +32,7 @@ export default function TagPicker({
   const count = (tag: Tag & { count: number }) =>
     changes?.has(tag.id) ? (changes.get(tag.id) ? files : 0) : tag.count;
   const assigned = tags.filter((tag) => count(tag) > 0);
-  const description = (tag: Tag & { count: number }) => {
-    const n = count(tag);
+  const description = (tag: Tag & { count: number }, n = count(tag)) => {
     return n === 0
       ? t.batchUnassigned
       : files === 1
@@ -40,30 +41,88 @@ export default function TagPicker({
           ? t.batchOnAll
           : t.batchOnSome(n, files);
   };
+  const bulk = changes !== undefined && onAdd !== undefined;
+  const addable = tags.filter((tag) => tag.count < files);
+  const removable = tags.filter((tag) => tag.count > 0);
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <MultiCombobox
-          className="min-w-0 flex-1"
-          ariaLabel={t.tagChooseManual}
-          searchPlaceholder={t.tagSearch}
-          placeholder={t.tagChooseManual}
-          selected={tags.filter((tag) => count(tag) === files).map((tag) => String(tag.id))}
-          mixed={tags
-            .filter((tag) => count(tag) > 0 && count(tag) < files)
-            .map((tag) => String(tag.id))}
-          wrapLabel
-          summary={t.tagChooseManual}
-          doneLabel={t.tagDone}
-          emptyLabel={tags.length ? t.tagNoManualMatches : t.tagNoManualAvailable}
-          disabled={disabled}
-          options={tags.map((tag) => ({
-            value: String(tag.id),
-            label: tag.name,
-            description: description(tag),
-          }))}
-          onToggle={(id) => onToggle(Number(id))}
-        />
+      <div className="flex items-start gap-2">
+        {bulk ? (
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 min-[460px]:grid-cols-2">
+            <MultiCombobox
+              ariaLabel={t.batchAddTags}
+              searchPlaceholder={t.tagSearch}
+              summary={t.batchAddTags}
+              selected={addable
+                .filter((tag) => changes.get(tag.id) === true)
+                .map((tag) => String(tag.id))}
+              options={addable.map((tag) => ({
+                value: String(tag.id),
+                label: tag.name,
+                description: description(tag, tag.count),
+              }))}
+              onToggle={(value) => {
+                const id = Number(value);
+                if (changes.get(id) === true) onReset?.(id);
+                else onAdd(id);
+              }}
+              doneLabel={t.tagDone}
+              emptyLabel={
+                !tags.length
+                  ? t.tagNoManualAvailable
+                  : !addable.length
+                    ? t.batchAllTagsAssigned
+                    : t.tagNoManualMatches
+              }
+              disabled={disabled}
+              wrapLabel
+            />
+            <MultiCombobox
+              ariaLabel={t.batchRemoveTags}
+              searchPlaceholder={t.tagSearch}
+              summary={removable.length ? t.batchRemoveTags : t.batchNoTagsToRemove}
+              selected={removable
+                .filter((tag) => changes.get(tag.id) === false)
+                .map((tag) => String(tag.id))}
+              options={removable.map((tag) => ({
+                value: String(tag.id),
+                label: tag.name,
+                description: description(tag, tag.count),
+              }))}
+              onToggle={(value) => {
+                const id = Number(value);
+                if (changes.get(id) === false) onReset?.(id);
+                else onRemove(id);
+              }}
+              doneLabel={t.tagDone}
+              emptyLabel={t.tagNoManualMatches}
+              disabled={disabled || !removable.length}
+              wrapLabel
+            />
+          </div>
+        ) : (
+          <MultiCombobox
+            className="min-w-0 flex-1"
+            ariaLabel={t.tagChooseManual}
+            searchPlaceholder={t.tagSearch}
+            placeholder={t.tagChooseManual}
+            selected={tags.filter((tag) => count(tag) === files).map((tag) => String(tag.id))}
+            mixed={tags
+              .filter((tag) => count(tag) > 0 && count(tag) < files)
+              .map((tag) => String(tag.id))}
+            wrapLabel
+            summary={t.tagChooseManual}
+            doneLabel={t.tagDone}
+            emptyLabel={tags.length ? t.tagNoManualMatches : t.tagNoManualAvailable}
+            disabled={disabled}
+            options={tags.map((tag) => ({
+              value: String(tag.id),
+              label: tag.name,
+              description: description(tag),
+            }))}
+            onToggle={(id) => onToggle(Number(id))}
+          />
+        )}
         <Btn
           type="button"
           onClick={onCreate}

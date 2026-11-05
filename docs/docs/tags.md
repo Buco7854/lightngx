@@ -70,11 +70,13 @@ limited to 200 files. For larger results, **Select first 200 matching files**
 names that limit before you act. Changing filters or folders clears the selection.
 Folders and external links cannot be selected in the config browser.
 
-The dialog shows the manual labels already present. Open **Choose manual tags**
-to search and select labels. Only manual tags appear here; smart tags are assigned
-by their rules. A partial checkbox and an `n/m` chip mean that only
-some selected files have that label; selecting it applies the label to all files.
-Remove a chip to remove that label from the selection. The change preview states
+The dialog shows the manual labels already present. Use **Add tags** to apply
+labels to every selected file, or **Remove tags** to clear labels from the
+selection. Both pickers are searchable. Remove also handles labels present on
+only some selected files, shown by an `n/m` chip. You can stage additions and
+removals together. Clear a choice in either picker or use **Undo** to keep the
+original assignment. Only manual tags appear here; smart tags are assigned by
+their rules. Removing a chip also stages removal. The change preview states
 each addition and removal, with **Undo** for individual changes. Choose
 **Apply changes** to save them together. Untouched labels keep their original
 assignments, including partially assigned labels.
@@ -88,6 +90,12 @@ The update either succeeds for every selected file or changes none. Missing
 files, external links, unknown tags, and tags converted to smart are rejected.
 Internal symlink aliases of the same file are counted and updated once. These
 metadata changes do not edit nginx contents or require a reload.
+
+In **Sites**, the same selection menu keeps **Start maintenance** and
+**End maintenance** visible. Start applies to enabled sites that are serving;
+End applies to sites already in maintenance. Actions without eligible sites are
+disabled. Disabled sites in a mixed selection are kept disabled. Maintenance
+is not available for TCP/UDP streams.
 
 ## Filter lists
 
