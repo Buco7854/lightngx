@@ -88,13 +88,13 @@ export function TagFilters({
   const selected = tags.filter((tag) => filter.value(tag.id) !== "any");
   return (
     <div className={`tag-filters ${panel ? "tag-filters-panel" : ""} shrink-0 border-b border-line bg-panel px-3 py-2.5 min-[761px]:px-5`}>
-      <div className="tag-filter-controls flex flex-wrap items-center gap-2">
-        <span className="tag-filter-legend mr-1 inline-flex items-center gap-1.5 text-[12px] font-medium text-dim">
-          <TagIcon size={14} />
-          {t.tags}
-        </span>
+      <div className="tag-filter-controls flex flex-wrap items-end gap-2">
         <div className="tag-filter-field">
-          {panel && <span className="tag-filter-field-label">{t.tagIncludePicker}</span>}
+          {panel ? (
+            <span className="tag-filter-field-label">{t.tagIncludePicker}</span>
+          ) : (
+            <span className="tag-filter-legend mb-1 block text-[11px] font-medium text-dim">{t.tags}</span>
+          )}
           <Combobox
             value=""
             onChange={(id) => filter.set(Number(id), "include")}

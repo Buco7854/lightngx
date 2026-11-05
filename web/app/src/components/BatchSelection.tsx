@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { useI18n } from "../i18n";
-import { TagIcon, XIcon } from "../icons";
+import { MoreIcon, TagIcon, XIcon } from "../icons";
 import { BATCH_LIMIT } from "../useBatchSelection";
-import { Btn, IconBtn } from "../ui";
+import { Btn, Dropdown, IconBtn, MenuItem, MenuSep } from "../ui";
 
 export default function BatchSelection({
   count,
@@ -23,7 +23,7 @@ export default function BatchSelection({
   onClear: () => void;
   onSelectMatching: () => void;
   onTags: () => void;
-  children?: ReactNode;
+  children?: (close: () => void) => ReactNode;
 }) {
   const { t } = useI18n();
   if (!count) return null;
@@ -36,11 +36,33 @@ export default function BatchSelection({
         <span role="status" className="mr-auto min-w-0 text-[13px] font-medium tabular-nums">
           {t.selectedCount(count)}
         </span>
-        <Btn size="sm" disabled={busy} onClick={onTags}>
-          <TagIcon size={15} />
-          {t.tags}
-        </Btn>
-        {children}
+        <Dropdown
+          size="sm"
+          disabled={busy}
+          chevron={false}
+          button={<MoreIcon size={17} />}
+          ariaLabel={t.batchActions}
+        >
+          {(close) => (
+            <>
+              <MenuItem
+                onClick={() => {
+                  close();
+                  onTags();
+                }}
+              >
+                <TagIcon size={15} />
+                {t.tags}
+              </MenuItem>
+              {children && (
+                <>
+                  <MenuSep />
+                  {children(close)}
+                </>
+              )}
+            </>
+          )}
+        </Dropdown>
       </div>
       {canSelectMore ? (
         <div className="batch-selection-scope">

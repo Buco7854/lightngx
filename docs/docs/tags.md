@@ -63,7 +63,7 @@ including changes made outside Lightngx.
 ## Apply manual tags in bulk
 
 Select files with the row checkboxes in **Sites**, **Streams**, or
-**Configuration**, then choose **Tags** in the selection bar. The header checkbox
+**Configuration**, then open the selection bar’s **…** menu and choose **Tags**. The header checkbox
 selects only the current page. Selection stays with you across pages; choose
 **Select all … matching files** to include other pages explicitly. Batches are
 limited to 200 files. For larger results, **Select first 200 matching files**
@@ -71,7 +71,8 @@ names that limit before you act. Changing filters or folders clears the selectio
 Folders and external links cannot be selected in the config browser.
 
 The dialog shows the manual labels already present. Open **Choose manual tags**
-to search and select labels. A partial checkbox and an `n/m` chip mean that only
+to search and select labels. Only manual tags appear here; smart tags are assigned
+by their rules. A partial checkbox and an `n/m` chip mean that only
 some selected files have that label; selecting it applies the label to all files.
 Remove a chip to remove that label from the selection. The change preview states
 each addition and removal, with **Undo** for individual changes. Choose

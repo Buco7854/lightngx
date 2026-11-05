@@ -55,7 +55,7 @@ export default function TagPicker({
           wrapLabel
           summary={t.tagChooseManual}
           doneLabel={t.tagDone}
-          emptyLabel={t.noMatches}
+          emptyLabel={tags.length ? t.tagNoManualMatches : t.tagNoManualAvailable}
           disabled={disabled}
           options={tags.map((tag) => ({
             value: String(tag.id),

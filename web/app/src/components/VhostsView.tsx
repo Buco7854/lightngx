@@ -320,15 +320,13 @@ export default function VhostsView({
       <BatchSelection count={selected.size} total={filtered.length} canSelectMore={selection.canSelectMore} atLimit={selection.atLimit}
         busy={anyBusy} onClear={selection.clear} onSelectMatching={selection.selectMatching}
         onTags={() => setTagPaths(selSites.map(site => site.path ?? `${kind}-available/${site.name}`))}>
-        <Dropdown size="sm" disabled={anyBusy} chevron={false} button={<MoreIcon size={17} />} ariaLabel={t.batchActions}>
-          {close => <>
+        {close => <>
             <MenuItem onClick={() => { close(); void runAction(sel, "enable"); }}>{t.enableSite}</MenuItem>
             <MenuItem onClick={() => { close(); void runAction(sel, "disable"); }}>{t.disableSite}</MenuItem>
             {maintenanceOK && anyEnabled && <MenuItem onClick={() => { close(); void runAction(sel, "maintenance_on"); }}>{t.maintenanceOn}</MenuItem>}
             {maintenanceOK && anyMaint && <MenuItem onClick={() => { close(); void runAction(sel, "maintenance_off"); }}>{t.maintenanceOff}</MenuItem>}
             <MenuItem danger onClick={() => { close(); void runAction(sel, "delete"); }}><TrashIcon size={15} />{t.deleteAction}</MenuItem>
-          </>}
-        </Dropdown>
+        </>}
       </BatchSelection>
       {tagPaths && <BatchTagsDialog paths={tagPaths} onClose={() => setTagPaths(null)} onChanged={() => { selection.clear(); tagData.refresh(); refresh(); }} />}
 
