@@ -45,7 +45,7 @@ GitHub project page at `/lightngx/`.
 
 ## Dependency security checks
 
-Use Go 1.27.3 or newer and Node 22.15 or newer. Run the dependency checks alongside
+Use Go 1.27.4 or newer and Node 22.15 or newer. Run the dependency checks alongside
 builds and tests:
 
 ```sh

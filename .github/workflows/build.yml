@@ -63,9 +63,11 @@ jobs:
             type=raw,value=dev,enable={{is_default_branch}}
             type=sha
       - uses: docker/build-push-action@v6
+        id: build-light
         with:
           context: .
           target: light
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-light.outputs.tags }}
           labels: ${{ steps.meta-light.outputs.labels }}
@@ -89,11 +91,23 @@ jobs:
             type=raw,value=dev-full,enable={{is_default_branch}}
             type=sha,suffix=-full
       - uses: docker/build-push-action@v6
+        id: build-full
         with:
           context: .
           target: full
+          pull: true
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-full.outputs.tags }}
           labels: ${{ steps.meta-full.outputs.labels }}
           build-args: |
             VERSION=${{ github.ref_name }}-${{ github.sha }}
+
+      - name: Verify published NGINX versions
+        if: github.event_name != 'pull_request'
+        env:
+          LIGHT_DIGEST: ${{ steps.build-light.outputs.digest }}
+          FULL_DIGEST: ${{ steps.build-full.outputs.digest }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/lightngx"
+          docker run --rm --entrypoint nginx "$image@$LIGHT_DIGEST" -v
+          docker run --rm --entrypoint nginx "$image@$FULL_DIGEST" -v

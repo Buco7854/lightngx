@@ -36,7 +36,7 @@ RUN npm run build
 #############################################################
 # Stage 2: backend (frontend embedded)
 #############################################################
-FROM golang:1.27.3-trixie AS build
+FROM golang:1.27.4-trixie AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -205,6 +205,19 @@ RUN set -eux; \
 FROM ${NGINX_IMAGE} AS light
 
 RUN set -eux; grep -qiE '^ID(_LIKE)?=.*debian' /etc/os-release
+
+# CVE-2026-123007 (HTTP/2 flow control) and CVE-2026-123633
+# (HTTP/2 use-after-free) require mainline 1.31.9+ or stable 1.30.7+.
+# Check the installed binary, including when NGINX_IMAGE is overridden.
+RUN set -eux; \
+    NGX_VER="$(nginx -v 2>&1 | sed -n 's|^nginx version: nginx/||p')"; \
+    if ! dpkg --compare-versions "$NGX_VER" ge 1.31.9 \
+        && ! { dpkg --compare-versions "$NGX_VER" ge 1.30.7 \
+               && dpkg --compare-versions "$NGX_VER" lt 1.31.0; }; then \
+        echo "FATAL: nginx $NGX_VER lacks the HTTP/2 security fixes (need 1.31.9+ or 1.30.7+)" >&2; \
+        exit 1; \
+    fi; \
+    nginx -v
 
 # Runtime deps: ca-certificates (OIDC login to the UI's IdP over TLS) and
 # logrotate (the supervisor runs it on a timer — no cron in the image).
